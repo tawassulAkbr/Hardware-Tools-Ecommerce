@@ -1,0 +1,152 @@
+import { Response } from 'express';
+import { prisma } from '../index';
+import { AuthRequest } from '../middlewares/auth';
+import { fallbackProducts } from '../data/catalog';
+import { writeAudit } from '../utils/audit';
+
+const SHIPPING_FEE = 9.99;
+
+const cartInclude = { items: { include: { product: { include: { category: true } } } } };
+
+const summarize = (cart: any) => {
+  const subtotal = cart.items.reduce((sum: number, item: any) => sum + item.product.price * item.quantity, 0);
+  return { ...cart, subtotal, shippingFee: cart.items.length ? SHIPPING_FEE : 0, total: subtotal + (cart.items.length ? SHIPPING_FEE : 0) };
+};
+
+export const demoCarts = new Map<number, any[]>();
+export const fallbackUserIds = new Set<number>();
+
+const summarizeDemoCart = (userId: number) => {
+  const items = demoCarts.get(userId) || [];
+  const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const shippingFee = items.length ? SHIPPING_FEE : 0;
+  return { id: userId, userId, items, subtotal, shippingFee, total: subtotal + shippingFee };
+};
+
+export const getDemoCart = (userId: number) => summarizeDemoCart(userId);
+export const clearDemoCart = (userId: number) => demoCarts.delete(userId);
+export const isFallbackUser = (userId: number) => userId < 0 || fallbackUserIds.has(userId);
+
+export const getCart = async (req: AuthRequest, res: Response) => {
+  if (isFallbackUser(req.user!.id)) return res.json(getDemoCart(req.user!.id));
+  try {
+    const cart = await prisma.cart.upsert({
+      where: { userId: req.user!.id },
+      create: { userId: req.user!.id },
+      update: {},
+      include: cartInclude,
+    });
+    return res.json(summarize(cart));
+  } catch (error) {
+    console.error('Cart database unavailable.', error);
+    fallbackUserIds.add(req.user!.id);
+    return res.json(getDemoCart(req.user!.id));
+  }
+};
+
+export const addToCart = async (req: AuthRequest, res: Response) => {
+  const productId = Number(req.body.productId);
+  const quantity = Number(req.body.quantity || 1);
+  if (!Number.isInteger(productId) || !Number.isInteger(quantity) || quantity < 1) {
+    return res.status(400).json({ error: 'Invalid product or quantity' });
+  }
+
+  if (isFallbackUser(req.user!.id)) {
+    const product = fallbackProducts.find((candidate) => candidate.id === productId);
+    if (!product) return res.status(404).json({ error: 'Product not found' });
+    const items = demoCarts.get(req.user!.id) || [];
+    const existing = items.find((item) => item.product.id === productId);
+    if ((existing?.quantity || 0) + quantity > product.stock) return res.status(400).json({ error: 'Requested quantity exceeds available stock' });
+    if (existing) existing.quantity += quantity;
+    else items.push({ id: productId, product, quantity });
+    demoCarts.set(req.user!.id, items);
+    await writeAudit({ userId: req.user!.id, action: 'ADD_ITEM', entity: 'CART', entityId: String(productId), metadata: { quantity } });
+    return res.json(getDemoCart(req.user!.id));
+  }
+
+  let product;
+  try {
+    product = await prisma.product.findUnique({ where: { id: productId } });
+  } catch (error) {
+    console.error('Cart database unavailable.', error);
+    const fallbackProduct = fallbackProducts.find((candidate) => candidate.id === productId);
+    if (!fallbackProduct) return res.status(404).json({ error: 'Product not found while offline' });
+    fallbackUserIds.add(req.user!.id);
+    const items = demoCarts.get(req.user!.id) || [];
+    const existing = items.find((item) => item.product.id === productId);
+    if ((existing?.quantity || 0) + quantity > fallbackProduct.stock) return res.status(400).json({ error: 'Requested quantity exceeds available stock' });
+    if (existing) existing.quantity += quantity; else items.push({ id: productId, product: fallbackProduct, quantity });
+    demoCarts.set(req.user!.id, items);
+    return res.json(getDemoCart(req.user!.id));
+  }
+  if (!product) return res.status(404).json({ error: 'Product not found' });
+
+  const cart = await prisma.cart.upsert({ where: { userId: req.user!.id }, create: { userId: req.user!.id }, update: {} });
+  const existing = await prisma.cartItem.findUnique({ where: { cartId_productId: { cartId: cart.id, productId } } });
+  if ((existing?.quantity || 0) + quantity > product.stock) {
+    return res.status(400).json({ error: 'Requested quantity exceeds available stock' });
+  }
+  await prisma.cartItem.upsert({
+    where: { cartId_productId: { cartId: cart.id, productId } },
+    create: { cartId: cart.id, productId, quantity },
+    update: { quantity: { increment: quantity } },
+  });
+  await writeAudit({ userId: req.user!.id, action: 'ADD_ITEM', entity: 'CART', entityId: String(productId), metadata: { quantity } });
+  return getCart(req, res);
+};
+
+export const updateCartItem = async (req: AuthRequest, res: Response) => {
+  const id = Number(req.params.id);
+  const quantity = Number(req.body.quantity);
+  if (!Number.isInteger(quantity) || quantity < 1) return res.status(400).json({ error: 'Invalid quantity' });
+
+  if (isFallbackUser(req.user!.id)) {
+    const items = demoCarts.get(req.user!.id) || [];
+    const item = items.find((entry) => entry.id === id);
+    if (!item) return res.status(404).json({ error: 'Cart item not found' });
+    if (item.product.stock < quantity) return res.status(400).json({ error: 'Out of stock' });
+    item.quantity = quantity;
+    await writeAudit({ userId: req.user!.id, action: 'UPDATE_ITEM', entity: 'CART', entityId: String(id), metadata: { quantity } });
+    return res.json(getDemoCart(req.user!.id));
+  }
+
+  let item;
+  try {
+    item = await prisma.cartItem.findUnique({ where: { id }, include: { product: true, cart: true } });
+  } catch (error) {
+    console.error('Cart database unavailable.', error);
+    fallbackUserIds.add(req.user!.id);
+    return res.status(404).json({ error: 'Cart item not found' });
+  }
+  if (!item || item.cart.userId !== req.user!.id) return res.status(404).json({ error: 'Cart item not found' });
+  if (item.product.stock < quantity) return res.status(400).json({ error: 'Out of stock' });
+
+  await prisma.cartItem.update({ where: { id }, data: { quantity } });
+  await writeAudit({ userId: req.user!.id, action: 'UPDATE_ITEM', entity: 'CART', entityId: String(id), metadata: { quantity } });
+  return getCart(req, res);
+};
+
+export const removeCartItem = async (req: AuthRequest, res: Response) => {
+  const id = Number(req.params.id);
+  if (isFallbackUser(req.user!.id)) {
+    const items = demoCarts.get(req.user!.id) || [];
+    const nextItems = items.filter((item) => item.id !== id);
+    if (nextItems.length === items.length) return res.status(404).json({ error: 'Cart item not found' });
+    demoCarts.set(req.user!.id, nextItems);
+    await writeAudit({ userId: req.user!.id, action: 'REMOVE_ITEM', entity: 'CART', entityId: String(id) });
+    return res.json(getDemoCart(req.user!.id));
+  }
+
+  let item;
+  try {
+    item = await prisma.cartItem.findUnique({ where: { id }, include: { cart: true } });
+  } catch (error) {
+    console.error('Cart database unavailable.', error);
+    fallbackUserIds.add(req.user!.id);
+    return res.status(404).json({ error: 'Cart item not found' });
+  }
+  if (!item || item.cart.userId !== req.user!.id) return res.status(404).json({ error: 'Cart item not found' });
+  await prisma.cartItem.delete({ where: { id } });
+  await writeAudit({ userId: req.user!.id, action: 'REMOVE_ITEM', entity: 'CART', entityId: String(id) });
+  return getCart(req, res);
+};

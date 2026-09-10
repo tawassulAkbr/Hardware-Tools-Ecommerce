@@ -1,0 +1,22 @@
+[
+  {
+    "id": -4,
+    "email": "alphacharlieb2@gmail.com",
+    "password": "$2b$10$SqLKwVHThYExgVWc7cEP0ePxAv3dKZ9wTKTNEpVZdAesHeuj4ktyC",
+    "name": "Alpha Bravo",
+    "phone": "03111111111",
+    "address": "Fast",
+    "role": "BUYER",
+    "status": "ACTIVE"
+  },
+  {
+    "id": -5,
+    "email": "tawassala72@gmail.com",
+    "password": "$2b$10$JvqOqh/sRoP8qGf1ygjsrePf0a4vZ.DvorW8PlfJZ.6LcR57QOvqC",
+    "name": "Hassan",
+    "phone": "03111111111",
+    "address": "Fast",
+    "role": "BUYER",
+    "status": "ACTIVE"
+  }
+]
