@@ -1,33 +1,40 @@
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const AUTH_STORAGE_KEY = 'toolkit_auth';
+const safeText = (value, maxLength) => typeof value === 'string'
+  ? Array.from(value).filter((character) => { const code = character.charCodeAt(0); return code > 31 && code !== 127; }).join('').slice(0, maxLength)
+  : '';
 
 const sanitizeAuth = (value) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
   const user = value.user;
-  if (!user || typeof user !== 'object' || Array.isArray(user) || typeof value.token !== 'string' || !value.token.trim()) return null;
+  const token = safeText(value.token, 4096).trim();
+  if (!user || typeof user !== 'object' || Array.isArray(user) || !/^[A-Za-z0-9._~-]+$/.test(token)) return null;
   return {
-    token: value.token.trim(),
+    token,
     user: {
-      id: typeof user.id === 'number' || typeof user.id === 'string' ? user.id : undefined,
-      email: typeof user.email === 'string' ? user.email : '',
-      name: typeof user.name === 'string' ? user.name : '',
-      phone: typeof user.phone === 'string' ? user.phone : '',
-      address: typeof user.address === 'string' ? user.address : '',
+      id: typeof user.id === 'number' || (typeof user.id === 'string' && /^\d+$/.test(user.id)) ? user.id : undefined,
+      email: safeText(user.email, 160),
+      name: safeText(user.name, 120),
+      phone: safeText(user.phone, 40),
+      address: safeText(user.address, 500),
       role: ['BUYER', 'ADMIN', 'SALES_PERSON'].includes(user.role) ? user.role : 'BUYER',
-      status: typeof user.status === 'string' ? user.status : undefined,
+      status: safeText(user.status, 40) || undefined,
     },
   };
 };
 
 export const getAuth = () => {
-  try { return sanitizeAuth(JSON.parse(localStorage.getItem('toolkit_auth') || 'null')); }
-  catch { localStorage.removeItem('toolkit_auth'); return null; }
+  try { return sanitizeAuth(JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || 'null')); }
+  catch { localStorage.removeItem(AUTH_STORAGE_KEY); return null; }
 };
 export const setAuth = (auth) => {
   const safeAuth = sanitizeAuth(auth);
-  if (safeAuth) localStorage.setItem('toolkit_auth', JSON.stringify(safeAuth));
-  else localStorage.removeItem('toolkit_auth');
+  if (safeAuth) {
+    const serializedAuth = JSON.stringify({ token: safeAuth.token, user: { ...safeAuth.user } });
+    localStorage.setItem(AUTH_STORAGE_KEY, serializedAuth);
+  } else localStorage.removeItem(AUTH_STORAGE_KEY);
 };
-export const clearAuth = () => localStorage.removeItem('toolkit_auth');
+export const clearAuth = () => localStorage.removeItem(AUTH_STORAGE_KEY);
 
 export const api = async (path, options = {}) => {
   const auth = getAuth();
