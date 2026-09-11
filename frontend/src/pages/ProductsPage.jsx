@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { api, getAuth, money } from '../api';
 import { fallbackCategories, filterFallbackProducts, saleDiscount } from '../data/catalog';
+import PageLoader from '../components/PageLoader';
 
 const animationFor = (product) => {
   if (product.animationUrl && /b\.(png|jpe?g|webp)$/i.test(product.animationUrl)) return product.animationUrl;
@@ -48,20 +49,29 @@ const ProductsPage = () => {
   const [categories, setCategories] = useState([]);
   const [subcategory, setSubcategory] = useState(searchParams.get('subcategory') || '');
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
+    const loadingTimer = window.setTimeout(() => { if (active) { setLoading(true); setMessage(''); } }, 0);
     const params = new URLSearchParams();
     if (categoryQuery) params.set('category', categoryQuery);
     if (subcategory) params.set('subcategory', subcategory);
     if (searchQuery) params.set('search', searchQuery);
     api(`/products?${params}`).then((data) => {
       const localProducts = filterFallbackProducts({ category: categoryQuery, subcategory, search: searchQuery });
-      setProducts(data.length ? data : localProducts);
+      if (active) setProducts(data.length ? data : localProducts);
     }).catch((err) => {
-      setProducts(filterFallbackProducts({ category: categoryQuery, subcategory, search: searchQuery }));
-      setMessage(`Backend unavailable. Showing the local tool catalog. (${err.message})`);
+      if (active) {
+        setProducts(filterFallbackProducts({ category: categoryQuery, subcategory, search: searchQuery }));
+        setMessage(`Backend unavailable. Showing the local tool catalog. (${err.message})`);
+      }
+    }).finally(() => {
+      window.clearTimeout(loadingTimer);
+      if (active) setLoading(false);
     });
-    api('/categories').then(setCategories).catch(() => setCategories(fallbackCategories));
+    api('/categories').then((data) => { if (active) setCategories(data); }).catch(() => { if (active) setCategories(fallbackCategories); });
+    return () => { active = false; window.clearTimeout(loadingTimer); };
   }, [categoryQuery, subcategory, searchQuery]);
 
   const add = async (productId) => {
@@ -93,7 +103,8 @@ const ProductsPage = () => {
       </div>
       {message && <div className="mb-5 rounded bg-gray-100 p-3 text-sm">{message}</div>}
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
+      {loading && <PageLoader />}
+      {!loading && <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-8">
         {products.map((product) => (
           <motion.div 
             key={product.id}
@@ -114,8 +125,8 @@ const ProductsPage = () => {
             </div>
           </motion.div>
         ))}
-      </div>
-      {!products.length && <div className="rounded bg-white p-8 text-center text-gray-600">No products found.</div>}
+      </div>}
+      {!loading && !products.length && <div className="rounded bg-white p-8 text-center text-gray-600">No products found.</div>}
     </div>
   );
 };
