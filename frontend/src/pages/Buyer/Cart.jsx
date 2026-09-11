@@ -11,10 +11,10 @@ const Cart = () => {
 
   const update = async (id, quantity) => {
     if (quantity < 1) return;
-    try { setCart(await api(`/cart/items/${id}`, { method: 'PUT', body: JSON.stringify({ quantity }) })); } catch (err) { setError(err.message); }
+    try { setCart(await api(`/cart/items/${id}`, { method: 'PUT', body: JSON.stringify({ quantity }) })); window.dispatchEvent(new Event('cart-change')); } catch (err) { setError(err.message); }
   };
   const remove = async (id) => {
-    try { setCart(await api(`/cart/items/${id}`, { method: 'DELETE' })); } catch (err) { setError(err.message); }
+    try { setCart(await api(`/cart/items/${id}`, { method: 'DELETE' })); window.dispatchEvent(new Event('cart-change')); } catch (err) { setError(err.message); }
   };
 
   if (!cart) return <div className="mx-auto max-w-6xl px-6 py-16 text-gray-500">Loading your cart...</div>;

@@ -25,6 +25,10 @@ const persistLocalUsers = () => {
   fs.mkdirSync(path.dirname(localUsersPath), { recursive: true });
   fs.writeFileSync(localUsersPath, JSON.stringify(localUsers, null, 2), 'utf8');
 };
+const persistGoogleFallback = (user: LocalUser) => {
+  localUsers.push(user);
+  try { persistLocalUsers(); } catch (error) { console.error('Could not persist local Google account; keeping it in memory.', error); }
+};
 const resetTokens = new Map<string, { email: string; expiresAt: number }>();
 const isRealGoogleClientId = (clientId?: string) => Boolean(clientId && !/^your([_-]|$)/i.test(clientId));
 
@@ -155,8 +159,7 @@ export const googleLogin = async (req: Request, res: Response): Promise<any> => 
       let localUser = localUsers.find((candidate) => candidate.email === email);
       if (!localUser) {
         localUser = { id: -(localUsers.length + 4), email, password: crypto.randomBytes(32).toString('hex'), name: profile.name || email.split('@')[0], phone: '', address: '', role: 'BUYER', status: 'ACTIVE' };
-        localUsers.push(localUser);
-        persistLocalUsers();
+        persistGoogleFallback(localUser);
       }
       return res.status(200).json(authResponse(localUser));
     }

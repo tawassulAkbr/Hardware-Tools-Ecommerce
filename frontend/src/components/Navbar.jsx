@@ -1,13 +1,14 @@
 import { Link } from 'react-router-dom';
 import { ShoppingCart, User, Menu, Search, LogOut, LayoutDashboard, Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { clearAuth, getAuth } from '../api';
+import { api, clearAuth, getAuth } from '../api';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [auth, setAuthState] = useState(getAuth());
   const [search, setSearch] = useState('');
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('toolkit_theme') === 'dark');
+  const [cartCount, setCartCount] = useState(0);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
@@ -25,6 +26,16 @@ const Navbar = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const refreshCartCount = () => {
+      if (!getAuth()?.token) return setCartCount(0);
+      api('/cart').then((cart) => setCartCount(cart.items?.reduce((total, item) => total + item.quantity, 0) || 0)).catch(() => setCartCount(0));
+    };
+    refreshCartCount();
+    window.addEventListener('cart-change', refreshCartCount);
+    return () => window.removeEventListener('cart-change', refreshCartCount);
+  }, [auth?.token]);
+
   const logout = () => {
     fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/logout`, { method: 'POST', headers: { Authorization: `Bearer ${auth?.token}` } }).catch(() => {});
     clearAuth();
@@ -41,7 +52,7 @@ const Navbar = () => {
         <div className="hidden md:flex space-x-8 items-center">
           <Link to="/products?category=Tools" className="hover:text-gray-300 transition">Tools</Link>
           <Link to="/products?category=Safety%20Equipment" className="hover:text-gray-300 transition">Safety Equipment</Link>
-          <a href="#footer" className="hover:text-gray-300 transition">Contact Us</a>
+          <Link to="/contact" className="hover:text-gray-300 transition">Contact Us</Link>
           <form action="/products" className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
             <input name="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search" className="w-44 rounded bg-white px-8 py-2 text-sm text-black outline-none" />
@@ -59,8 +70,9 @@ const Navbar = () => {
             ) : (
               <Link to="/login" className="flex items-center hover:text-gray-300 transition"><User className="w-5 h-5 mr-1" /><span>Login</span></Link>
             )}
-            <Link to="/cart" className="flex items-center hover:text-gray-300 transition relative">
-              <ShoppingCart className="w-5 h-5" />
+            <Link to="/cart" className="relative flex items-center transition hover:text-gray-300">
+              <ShoppingCart className="h-5 w-5" />
+              {cartCount > 0 && <span className="absolute -right-3 -top-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-500 px-1 text-[10px] font-bold text-white">{cartCount > 99 ? '99+' : cartCount}</span>}
             </Link>
           </div>
         </div>
@@ -82,11 +94,12 @@ const Navbar = () => {
           <Link to="/" className="text-2xl font-bold" onClick={() => setIsOpen(false)}>ToolKit</Link>
           <Link to="/products?category=Tools" onClick={() => setIsOpen(false)}>Tools</Link>
           <Link to="/products?category=Safety%20Equipment" onClick={() => setIsOpen(false)}>Safety Equipment</Link>
+          <Link to="/contact" onClick={() => setIsOpen(false)}>Contact Us</Link>
           <Link to={auth?.user?.role === 'ADMIN' || auth?.user?.role === 'SALES_PERSON' ? '/admin/dashboard' : auth ? '/dashboard' : '/login'} className="flex items-center" onClick={() => setIsOpen(false)}>
             <User className="w-5 h-5 mr-2" /> {auth ? 'Profile' : 'Login'}
           </Link>
           <Link to="/cart" className="flex items-center" onClick={() => setIsOpen(false)}>
-            <ShoppingCart className="w-5 h-5 mr-2" /> Cart
+            <ShoppingCart className="mr-2 h-5 w-5" /> Cart {cartCount > 0 && <span className="ml-2 rounded-full bg-blue-500 px-2 py-0.5 text-xs font-bold">{cartCount}</span>}
           </Link>
           <button type="button" className="flex items-center" onClick={() => { setDarkMode((value) => !value); setIsOpen(false); }}><span className="mr-2">{darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}</span>{darkMode ? 'Light mode' : 'Dark mode'}</button>
           {auth && <button onClick={logout} className="flex items-center"><LogOut className="w-5 h-5 mr-2" /> Logout</button>}

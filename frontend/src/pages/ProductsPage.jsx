@@ -2,13 +2,20 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { api, getAuth, money } from '../api';
-import { fallbackCategories, filterFallbackProducts } from '../data/catalog';
+import { fallbackCategories, filterFallbackProducts, saleDiscount } from '../data/catalog';
 
 const animationFor = (product) => {
   if (product.animationUrl && /b\.(png|jpe?g|webp)$/i.test(product.animationUrl)) return product.animationUrl;
-  const match = product.name?.match(/^(Hand Tool|Soft Tool) (\d+)$/);
-  if (!match || Number(match[2]) < 1 || Number(match[2]) > 10 || (match[1] === 'Soft Tool' && match[2] !== '1')) return null;
-  return `/images/${encodeURIComponent(`${match[1]} ${match[2]}b.png`)}`;
+  return null;
+};
+
+const imageFor = (product) => {
+  if (product.imageUrl) return product.imageUrl;
+  const tool = product.name?.match(/^(Hand Tool|Soft Tool) (\d+)$/);
+  if (tool) return `/images/${encodeURIComponent(`${tool[1]} ${tool[2]}.png`)}`;
+  const safety = product.name?.match(/^Safety Equipment (\d+)$/);
+  if (safety) return `/images/${encodeURIComponent(`Safety${Number(safety[1]) === 1 ? ' ' : ` ${Number(safety[1]) - 1}`}.png`)}`;
+  return null;
 };
 
 const AnimatedProductImage = ({ product }) => {
@@ -22,9 +29,11 @@ const AnimatedProductImage = ({ product }) => {
     return () => window.clearInterval(timer);
   }, [animationUrl, isHovered]);
 
+  if (!animationUrl) return <img src={imageFor(product)} alt={product.name} className="h-full w-full object-contain p-4" />;
+
   return (
     <div className="relative h-full w-full" onMouseEnter={() => { setIsHovered(true); setShowAnimation(true); }} onMouseLeave={() => { setIsHovered(false); setShowAnimation(false); }}>
-      <img src={product.imageUrl} alt={product.name} className={`absolute inset-0 h-full w-full object-contain p-4 transition-opacity duration-500 ${showAnimation ? 'opacity-0' : 'opacity-100'}`} />
+      <img src={imageFor(product)} alt={product.name} className={`absolute inset-0 h-full w-full object-contain p-4 transition-opacity duration-500 ${showAnimation ? 'opacity-0' : 'opacity-100'}`} />
       {animationUrl && <img src={animationUrl} alt={`${product.name} alternate view`} className={`absolute inset-0 h-full w-full object-contain p-4 transition-opacity duration-500 ${showAnimation ? 'opacity-100' : 'opacity-0'}`} />}
     </div>
   );
@@ -34,6 +43,7 @@ const ProductsPage = () => {
   const [searchParams] = useSearchParams();
   const categoryQuery = searchParams.get('category');
   const searchQuery = searchParams.get('search') || '';
+  const saleView = searchParams.get('sale') === '1';
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [subcategory, setSubcategory] = useState(searchParams.get('subcategory') || '');
@@ -44,7 +54,10 @@ const ProductsPage = () => {
     if (categoryQuery) params.set('category', categoryQuery);
     if (subcategory) params.set('subcategory', subcategory);
     if (searchQuery) params.set('search', searchQuery);
-    api(`/products?${params}`).then(setProducts).catch((err) => {
+    api(`/products?${params}`).then((data) => {
+      const localProducts = filterFallbackProducts({ category: categoryQuery, subcategory, search: searchQuery });
+      setProducts(data.length ? data : localProducts);
+    }).catch((err) => {
       setProducts(filterFallbackProducts({ category: categoryQuery, subcategory, search: searchQuery }));
       setMessage(`Backend unavailable. Showing the local tool catalog. (${err.message})`);
     });
@@ -54,14 +67,15 @@ const ProductsPage = () => {
   const add = async (productId) => {
     if (!getAuth()?.token) return setMessage('Please login to add items to your cart.');
     try {
-      await api('/cart/items', { method: 'POST', body: JSON.stringify({ productId, quantity: 1 }) });
+      await api('/cart/items', { method: 'POST', body: JSON.stringify({ productId, quantity: 1, sale: saleView }) });
       setMessage('Added to cart.');
+      window.dispatchEvent(new Event('cart-change'));
     } catch (err) {
       setMessage(err.message);
     }
   };
 
-  const subcategories = categories.filter((c) => c.parent?.name === categoryQuery);
+  const subcategories = categories.filter((c) => c.parent?.name?.toLowerCase() === categoryQuery?.toLowerCase());
 
   return (
     <div className="min-h-screen p-8 max-w-7xl mx-auto">
@@ -87,12 +101,12 @@ const ProductsPage = () => {
             whileHover={{ y: -5 }}
           >
             <div className="h-48 bg-gray-200 flex items-center justify-center text-gray-500 overflow-hidden">
-              {product.imageUrl ? <AnimatedProductImage product={product} /> : 'Tool Image'}
+              {imageFor(product) ? <AnimatedProductImage product={product} /> : 'Tool Image'}
             </div>
             <div className="p-4">
               <h3 className="text-lg font-bold">{product.name}</h3>
               <p className="mt-1 text-sm text-gray-500">{product.category?.parent?.name || product.category?.name} / {product.category?.name}</p>
-              <p className="text-gray-900 font-semibold mt-2">{money(product.price)}</p>
+              <p className="mt-2 font-semibold text-gray-900">{saleView && saleDiscount(product) > 0 ? <><span className="mr-2 text-blue-600">{money(product.price * (1 - saleDiscount(product) / 100))}</span><span className="text-sm text-gray-400 line-through">{money(product.price)}</span></> : money(product.price)}</p>
               <p className={`text-sm ${product.stock > 0 ? 'text-green-700' : 'text-red-700'}`}>{product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}</p>
               <button disabled={product.stock < 1} onClick={() => add(product.id)} className="w-full mt-4 bg-black text-white py-2 rounded hover:bg-gray-800 disabled:bg-gray-400 transition">
                 {product.stock > 0 ? 'Add to Cart' : 'Unavailable'}

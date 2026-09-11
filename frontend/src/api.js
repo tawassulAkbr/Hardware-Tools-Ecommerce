@@ -20,4 +20,8 @@ export const api = async (path, options = {}) => {
   return data;
 };
 
-export const money = (value) => `$${Number(value || 0).toFixed(2)}`;
+export const money = (value) => new Intl.NumberFormat('en-PK', {
+  style: 'currency',
+  currency: 'PKR',
+  maximumFractionDigits: 0,
+}).format(Number(value || 0));

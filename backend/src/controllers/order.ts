@@ -2,11 +2,11 @@ import { Request, Response } from 'express';
 import { prisma } from '../index';
 import { AuthRequest } from '../middlewares/auth';
 import { sendOrderEmail } from '../utils/email';
-import { clearDemoCart, getDemoCart, fallbackUserIds, isFallbackUser } from './cart';
+import { clearDemoCart, getDemoCart, fallbackUserIds, isFallbackUser, salePrice } from './cart';
 import crypto from 'node:crypto';
 import { writeAudit } from '../utils/audit';
 
-const SHIPPING_FEE = 9.99;
+const SHIPPING_FEE = 299;
 const statuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'RETURN_REQUESTED'];
 
 const makeOrderId = () => {
@@ -24,7 +24,7 @@ const fallbackCheckout = async (req: AuthRequest, res: Response) => {
   demoOrders.unshift(order);
   clearDemoCart(req.user!.id);
   await writeAudit({ userId: req.user!.id, action: 'CREATE', entity: 'ORDER', entityId: order.id, metadata: { totalAmount: order.totalAmount, source: 'offline-fallback' } });
-  void sendOrderEmail(req.body.email || 'buyer@toolkit.com', order.id, order);
+  await sendOrderEmail(req.body.email || 'buyer@toolkit.com', order.id, order);
   return res.status(201).json(order);
 };
 
@@ -50,7 +50,7 @@ export const checkout = async (req: AuthRequest, res: Response) => {
     if (item.product.stock < item.quantity) return res.status(400).json({ error: `${item.product.name} is out of stock` });
   }
 
-  const subtotal = cart.items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const subtotal = cart.items.reduce((sum, item) => sum + salePrice(item.product, item.saleApplied) * item.quantity, 0);
   let shippingFee = SHIPPING_FEE;
   try {
     const setting = await prisma.systemSetting.findUnique({ where: { key: 'shippingFee' } });
@@ -88,7 +88,7 @@ export const checkout = async (req: AuthRequest, res: Response) => {
           create: cart.items.map((item) => ({
             productId: item.productId,
             quantity: item.quantity,
-            price: item.product.price,
+            price: salePrice(item.product, item.saleApplied),
           })),
         },
       },
@@ -99,7 +99,7 @@ export const checkout = async (req: AuthRequest, res: Response) => {
     return created;
   });
 
-  void sendOrderEmail(cart.user.email, order.id, order);
+  await sendOrderEmail(cart.user.email, order.id, order);
   await writeAudit({ userId: req.user!.id, action: 'CREATE', entity: 'ORDER', entityId: order.id, metadata: { totalAmount: order.totalAmount } });
   return res.status(201).json(order);
 };

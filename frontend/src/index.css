@@ -122,3 +122,75 @@ html.dark textarea::placeholder { color: #9ca3af; }
     transform: none;
   }
 }
+
+.reviews-reel {
+  width: 100%;
+  overflow: hidden;
+}
+
+.reviews-reel__track {
+  display: flex;
+  width: max-content;
+  gap: 1rem;
+  animation: reviews-reel-scroll 34s linear infinite;
+}
+
+.reviews-reel:hover .reviews-reel__track {
+  animation-play-state: paused;
+}
+
+.reviews-reel__item {
+  width: min(78vw, 22rem);
+  flex: 0 0 min(78vw, 22rem);
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  padding: 1.25rem;
+}
+
+.sales-reel {
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #4b5563 transparent;
+}
+
+.sales-reel__track {
+  display: flex;
+  gap: 1rem;
+  min-width: max-content;
+  padding: 0 max(1.5rem, calc((100vw - 80rem) / 2));
+  animation: sales-reel-scroll 38s linear infinite;
+}
+
+.sales-reel:hover .sales-reel__track {
+  animation-play-state: paused;
+}
+
+.sales-reel__item {
+  width: 14rem;
+  flex: 0 0 14rem;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  transition: transform 180ms ease, border-color 180ms ease;
+}
+
+.sales-reel__item:hover {
+  transform: translateY(-4px);
+  border-color: #2563eb;
+}
+
+@keyframes sales-reel-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(-50% - 0.5rem)); }
+}
+
+@keyframes reviews-reel-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(-50% - 0.5rem)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reviews-reel__track,
+  .sales-reel__track { animation: none; }
+}

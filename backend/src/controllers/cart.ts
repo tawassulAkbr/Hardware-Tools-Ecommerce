@@ -4,20 +4,30 @@ import { AuthRequest } from '../middlewares/auth';
 import { fallbackProducts } from '../data/catalog';
 import { writeAudit } from '../utils/audit';
 
-const SHIPPING_FEE = 9.99;
+const SHIPPING_FEE = 299;
+
+export const saleDiscount = (product: { name?: unknown }) => {
+  const handNames = ['Adjustable Wrench', 'Claw Hammer', 'Precision Screwdriver Set', 'Combination Pliers', 'Measuring Tape', 'Utility Knife', 'Pipe Wrench', 'Hex Key Set', 'Cold Chisel Set', 'Ratchet Socket Set'];
+  const index = handNames.indexOf(String(product.name || ''));
+  return index < 0 ? 0 : (index * 3) % 16;
+};
+
+export const salePrice = (product: { name?: string; price: number }, applied = true) => applied ? Number((product.price * (1 - saleDiscount(product) / 100)).toFixed(2)) : product.price;
+const cartProduct = (product: any, applied = false) => ({ ...product, price: salePrice(product, applied), saleApplied: applied });
 
 const cartInclude = { items: { include: { product: { include: { category: true } } } } };
 
 const summarize = (cart: any) => {
-  const subtotal = cart.items.reduce((sum: number, item: any) => sum + item.product.price * item.quantity, 0);
-  return { ...cart, subtotal, shippingFee: cart.items.length ? SHIPPING_FEE : 0, total: subtotal + (cart.items.length ? SHIPPING_FEE : 0) };
+  const items = cart.items.map((item: any) => ({ ...item, product: cartProduct(item.product, item.saleApplied) }));
+  const subtotal = items.reduce((sum: number, item: any) => sum + item.product.price * item.quantity, 0);
+  return { ...cart, items, subtotal, shippingFee: items.length ? SHIPPING_FEE : 0, total: subtotal + (items.length ? SHIPPING_FEE : 0) };
 };
 
 export const demoCarts = new Map<number, any[]>();
 export const fallbackUserIds = new Set<number>();
 
 const summarizeDemoCart = (userId: number) => {
-  const items = demoCarts.get(userId) || [];
+  const items = (demoCarts.get(userId) || []).map((item) => ({ ...item, product: cartProduct(item.product, item.saleApplied) }));
   const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const shippingFee = items.length ? SHIPPING_FEE : 0;
   return { id: userId, userId, items, subtotal, shippingFee, total: subtotal + shippingFee };
@@ -47,6 +57,7 @@ export const getCart = async (req: AuthRequest, res: Response) => {
 export const addToCart = async (req: AuthRequest, res: Response) => {
   const productId = Number(req.body.productId);
   const quantity = Number(req.body.quantity || 1);
+  const requestedSale = req.body.sale === true || req.body.sale === 'true';
   if (!Number.isInteger(productId) || !Number.isInteger(quantity) || quantity < 1) {
     return res.status(400).json({ error: 'Invalid product or quantity' });
   }
@@ -58,7 +69,7 @@ export const addToCart = async (req: AuthRequest, res: Response) => {
     const existing = items.find((item) => item.product.id === productId);
     if ((existing?.quantity || 0) + quantity > product.stock) return res.status(400).json({ error: 'Requested quantity exceeds available stock' });
     if (existing) existing.quantity += quantity;
-    else items.push({ id: productId, product, quantity });
+    else items.push({ id: productId, product, quantity, saleApplied: requestedSale && saleDiscount(product) > 0 });
     demoCarts.set(req.user!.id, items);
     await writeAudit({ userId: req.user!.id, action: 'ADD_ITEM', entity: 'CART', entityId: String(productId), metadata: { quantity } });
     return res.json(getDemoCart(req.user!.id));
@@ -75,7 +86,7 @@ export const addToCart = async (req: AuthRequest, res: Response) => {
     const items = demoCarts.get(req.user!.id) || [];
     const existing = items.find((item) => item.product.id === productId);
     if ((existing?.quantity || 0) + quantity > fallbackProduct.stock) return res.status(400).json({ error: 'Requested quantity exceeds available stock' });
-    if (existing) existing.quantity += quantity; else items.push({ id: productId, product: fallbackProduct, quantity });
+    if (existing) existing.quantity += quantity; else items.push({ id: productId, product: fallbackProduct, quantity, saleApplied: requestedSale && saleDiscount(fallbackProduct) > 0 });
     demoCarts.set(req.user!.id, items);
     return res.json(getDemoCart(req.user!.id));
   }
@@ -88,8 +99,8 @@ export const addToCart = async (req: AuthRequest, res: Response) => {
   }
   await prisma.cartItem.upsert({
     where: { cartId_productId: { cartId: cart.id, productId } },
-    create: { cartId: cart.id, productId, quantity },
-    update: { quantity: { increment: quantity } },
+    create: { cartId: cart.id, productId, quantity, saleApplied: requestedSale && saleDiscount(product) > 0 },
+    update: { quantity: { increment: quantity }, saleApplied: requestedSale && saleDiscount(product) > 0 },
   });
   await writeAudit({ userId: req.user!.id, action: 'ADD_ITEM', entity: 'CART', entityId: String(productId), metadata: { quantity } });
   return getCart(req, res);

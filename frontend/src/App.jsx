@@ -13,6 +13,7 @@ import Cart from './pages/Buyer/Cart';
 import Checkout from './pages/Buyer/Checkout';
 import OrderConfirmation from './pages/Buyer/OrderConfirmation';
 import ProtectedRoute from './components/ProtectedRoute';
+import ContactPage from './pages/ContactPage';
 
 function App() {
   const [loading, setLoading] = useState(true);
@@ -32,6 +33,7 @@ function App() {
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/products" element={<ProductsPage />} />
+            <Route path="/contact" element={<ContactPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password/:token" element={<ResetPassword />} />

@@ -5,17 +5,19 @@ const prisma = new PrismaClient();
 
 const groups = {
   Tools: ['All Tools', 'Hand Tools', 'Soft Tools', 'Power Tools', 'Tool Sets'],
-  'Safety Equipment': ['Gloves', 'Protective Head Gear', 'Harness', 'Ropes', 'Locks & Cables', 'Safety Shoes'],
+  'Safety Equipment': ['Gloves', 'Protective Head Gear', 'Harness', 'Ropes', 'Locks & Cables', 'Safety Shoes', 'Chemical Gloves', 'Welding Gloves', 'Safety Glasses', 'Welding Goggles'],
 };
 
 const asset = (name: string) => `/images/${encodeURIComponent(name)}`;
+const handNames = ['Adjustable Wrench', 'Claw Hammer', 'Precision Screwdriver Set', 'Combination Pliers', 'Measuring Tape', 'Utility Knife', 'Pipe Wrench', 'Hex Key Set', 'Cold Chisel Set', 'Ratchet Socket Set'];
+const softNames = ['Tool Organizer Bag', 'Protective Knee Pads', 'Rubber Mallet', 'Cable Tie Kit', 'Workshop Mat', 'Sanding Block Set', 'Grip Pad Set', 'Foam Work Cushion', 'Flexible Scraper Set', 'Workshop Cleaning Kit'];
 const products = [
   ...Array.from({ length: 10 }, (_, index) => {
     const number = index + 1;
     return {
-      name: `Hand Tool ${number}`,
+      name: handNames[index],
       description: `Professional hand tool ${number} for dependable workshop and site work.`,
-      price: [18.99, 24.5, 29.99, 34.75, 39.99, 44.5, 49.99, 55, 62.5, 69.99][index],
+      price: [1899, 2499, 2999, 3499, 3999, 4499, 4999, 5499, 6299, 6999][index],
       stock: 12 + index,
       categoryName: 'Hand Tools',
       imageUrl: asset(`Hand Tool ${number}.png`),
@@ -24,20 +26,24 @@ const products = [
   ...Array.from({ length: 10 }, (_, index) => {
     const number = index + 1;
     return {
-      name: `Soft Tool ${number}`,
+      name: softNames[index],
       description: `Protective soft tool ${number} designed for careful handling and finishing work.`,
-      price: [14.99, 19.5, 22.99, 27.5, 31.99, 36.5, 41.99, 47.5, 53.99, 59.99][index],
+      price: [1499, 1999, 2299, 2799, 3199, 3699, 4199, 4799, 5399, 5999][index],
       stock: 14 + index,
       categoryName: 'Soft Tools',
       imageUrl: asset(`Soft Tool ${number}.png`),
     };
   }),
-  { name: 'Safety Equipment 1', description: 'Essential protective equipment for safer daily work.', price: 16.99, stock: 20, categoryName: 'Gloves', imageUrl: asset('Safety .png') },
-  { name: 'Safety Equipment 2', description: 'Reliable protective equipment for workshop and site use.', price: 28.5, stock: 18, categoryName: 'Protective Head Gear', imageUrl: asset('Safety 1.png') },
-  { name: 'Safety Equipment 3', description: 'Durable safety equipment for demanding working conditions.', price: 42.99, stock: 15, categoryName: 'Harness', imageUrl: asset('Safety 2.png') },
-  { name: 'Safety Equipment 4', description: 'Practical safety equipment for controlled and secure work areas.', price: 35.75, stock: 16, categoryName: 'Ropes', imageUrl: asset('Safety 3.png') },
-  { name: 'Safety Equipment 5', description: 'Site-ready safety equipment built for reliable protection.', price: 48.99, stock: 11, categoryName: 'Locks & Cables', imageUrl: asset('Safety 4.png') },
-  { name: 'Safety Equipment 6', description: 'Comfortable protective equipment for long working days.', price: 64.99, stock: 10, categoryName: 'Safety Shoes', imageUrl: asset('Safety 5.png') },
+  { name: 'Cut Resistant Gloves', description: 'Essential protective equipment for safer daily work.', price: 1699, stock: 20, categoryName: 'Gloves', imageUrl: asset('Safety .png') },
+  { name: 'Impact Safety Helmet', description: 'Reliable protective equipment for workshop and site use.', price: 2899, stock: 18, categoryName: 'Protective Head Gear', imageUrl: asset('Safety 1.png') },
+  { name: 'Full Body Harness', description: 'Durable safety equipment for demanding working conditions.', price: 4299, stock: 15, categoryName: 'Harness', imageUrl: asset('Safety 2.png') },
+  { name: 'High Visibility Safety Rope', description: 'Practical safety equipment for controlled and secure work areas.', price: 3599, stock: 16, categoryName: 'Ropes', imageUrl: asset('Safety 3.png') },
+  { name: 'Safety Lock Cable', description: 'Site-ready safety equipment built for reliable protection.', price: 4899, stock: 11, categoryName: 'Locks & Cables', imageUrl: asset('Safety 4.png') },
+  { name: 'Steel Toe Safety Shoes', description: 'Comfortable protective equipment for long working days.', price: 6499, stock: 10, categoryName: 'Safety Shoes', imageUrl: asset('Safety 5.png') },
+  { name: 'Chemical Resistant Gloves', description: 'Chemical-resistant gloves for controlled handling and site work.', price: 2199, stock: 14, categoryName: 'Chemical Gloves', imageUrl: asset('Safety 6.png') },
+  { name: 'Heavy Duty Welding Gloves', description: 'Heavy-duty gloves for welding and high-temperature work.', price: 2499, stock: 12, categoryName: 'Welding Gloves', imageUrl: asset('Safety 7.png') },
+  { name: 'Tinted Safety Glasses', description: 'Clear protective eyewear for workshop and construction tasks.', price: 1899, stock: 16, categoryName: 'Safety Glasses', imageUrl: asset('Safety 8.png') },
+  { name: 'Welding Protection Goggles', description: 'Dark protective eyewear designed for welding environments.', price: 2799, stock: 13, categoryName: 'Welding Goggles', imageUrl: asset('Safety 9.png') },
 ];
 
 async function main() {

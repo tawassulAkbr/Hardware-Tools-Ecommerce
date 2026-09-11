@@ -8,6 +8,7 @@ import categoryRoutes from './routes/categories';
 import cartRoutes from './routes/cart';
 import orderRoutes from './routes/orders';
 import adminRoutes from './routes/admin';
+import feedbackRoutes from './routes/feedback';
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(err);
