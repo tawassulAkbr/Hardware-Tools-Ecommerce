@@ -53,10 +53,10 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password/:token" element={<ResetPassword />} />
-            <Route path="/cart" element={<ProtectedRoute><Cart /></ProtectedRoute>} />
-            <Route path="/checkout" element={<ProtectedRoute><Checkout /></ProtectedRoute>} />
-            <Route path="/order-confirmation/:id" element={<ProtectedRoute><OrderConfirmation /></ProtectedRoute>} />
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/cart" element={<ProtectedRoute role={['BUYER', 'ADMIN']}><Cart /></ProtectedRoute>} />
+            <Route path="/checkout" element={<ProtectedRoute role="BUYER"><Checkout /></ProtectedRoute>} />
+            <Route path="/order-confirmation/:id" element={<ProtectedRoute role="BUYER"><OrderConfirmation /></ProtectedRoute>} />
+            <Route path="/dashboard" element={<ProtectedRoute role="BUYER"><Dashboard /></ProtectedRoute>} />
             <Route path="/admin/dashboard" element={<ProtectedRoute role={['ADMIN', 'SALES_PERSON']}><AdminDashboard /></ProtectedRoute>} />
           </Routes>
         </main>

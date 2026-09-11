@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ShoppingCart, User, Menu, Search, LogOut, LayoutDashboard, Moon, Sun } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api, clearAuth, getAuth } from '../api';
@@ -9,6 +9,8 @@ const Navbar = () => {
   const [search, setSearch] = useState('');
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('toolkit_theme') === 'dark');
   const [cartCount, setCartCount] = useState(0);
+  const navigate = useNavigate();
+  const canShop = !auth?.token || ['BUYER', 'ADMIN'].includes(auth?.user?.role);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', darkMode);
@@ -40,7 +42,9 @@ const Navbar = () => {
     fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/logout`, { method: 'POST', headers: { Authorization: `Bearer ${auth?.token}` } }).catch(() => {});
     clearAuth();
     setAuthState(null);
+    setIsOpen(false);
     window.dispatchEvent(new Event('auth-change'));
+    navigate('/', { replace: true });
   };
 
   return (
@@ -70,10 +74,10 @@ const Navbar = () => {
             ) : (
               <Link to="/login" className="flex items-center hover:text-gray-300 transition"><User className="w-5 h-5 mr-1" /><span>Login</span></Link>
             )}
-            <Link to="/cart" className="relative flex items-center transition hover:text-gray-300">
+            {canShop && <Link to="/cart" className="relative flex items-center transition hover:text-gray-300">
               <ShoppingCart className="h-5 w-5" />
               {cartCount > 0 && <span className="absolute -right-3 -top-3 flex h-5 min-w-5 items-center justify-center rounded-full bg-blue-500 px-1 text-[10px] font-bold text-white">{cartCount > 99 ? '99+' : cartCount}</span>}
-            </Link>
+            </Link>}
           </div>
         </div>
 
@@ -105,9 +109,9 @@ const Navbar = () => {
           <Link to={auth?.user?.role === 'ADMIN' || auth?.user?.role === 'SALES_PERSON' ? '/admin/dashboard' : auth ? '/dashboard' : '/login'} className="flex items-center" onClick={() => setIsOpen(false)}>
             <User className="w-5 h-5 mr-2" /> {auth ? 'Profile' : 'Login'}
           </Link>
-          <Link to="/cart" className="flex items-center" onClick={() => setIsOpen(false)}>
+          {canShop && <Link to="/cart" className="flex items-center" onClick={() => setIsOpen(false)}>
             <ShoppingCart className="mr-2 h-5 w-5" /> Cart {cartCount > 0 && <span className="ml-2 rounded-full bg-blue-500 px-2 py-0.5 text-xs font-bold">{cartCount}</span>}
-          </Link>
+          </Link>}
           <button type="button" className="flex items-center" onClick={() => { setDarkMode((value) => !value); setIsOpen(false); }}><span className="mr-2">{darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}</span>{darkMode ? 'Light mode' : 'Dark mode'}</button>
           {auth && <button onClick={logout} className="flex items-center"><LogOut className="w-5 h-5 mr-2" /> Logout</button>}
         </div>
