@@ -87,7 +87,7 @@ export const addToCart = async (req: AuthRequest, res: Response) => {
     if (existing) existing.quantity += quantity;
     else items.push({ id: productId, product, quantity, saleApplied: requestedSale && saleDiscount(product) > 0 });
     demoCarts.set(req.user!.id, items);
-    await writeAudit({ userId: req.user!.id, action: 'ADD_ITEM', entity: 'CART', entityId: String(productId), metadata: { quantity } });
+    void writeAudit({ userId: req.user!.id, action: 'ADD_ITEM', entity: 'CART', entityId: String(productId), metadata: { quantity } });
     return res.json(getDemoCart(req.user!.id));
   }
 
@@ -103,6 +103,18 @@ export const addToCart = async (req: AuthRequest, res: Response) => {
     const existing = items.find((item) => item.product.id === productId);
     if ((existing?.quantity || 0) + quantity > fallbackProduct.stock) return res.status(400).json({ error: 'Requested quantity exceeds available stock' });
     if (existing) existing.quantity += quantity; else items.push({ id: productId, product: fallbackProduct, quantity, saleApplied: requestedSale && saleDiscount(fallbackProduct) > 0 });
+    demoCarts.set(req.user!.id, items);
+    return res.json(getDemoCart(req.user!.id));
+  }
+  if (!product && productId < 0) {
+    const fallbackProduct = fallbackProducts.find((candidate) => candidate.id === productId);
+    if (!fallbackProduct) return res.status(404).json({ error: 'Product not found' });
+    fallbackUserIds.add(req.user!.id);
+    const items = demoCarts.get(req.user!.id) || [];
+    const existing = items.find((item) => item.product.id === productId);
+    if ((existing?.quantity || 0) + quantity > fallbackProduct.stock) return res.status(400).json({ error: 'Requested quantity exceeds available stock' });
+    if (existing) existing.quantity += quantity;
+    else items.push({ id: productId, product: fallbackProduct, quantity, saleApplied: requestedSale && saleDiscount(fallbackProduct) > 0 });
     demoCarts.set(req.user!.id, items);
     return res.json(getDemoCart(req.user!.id));
   }
@@ -125,7 +137,15 @@ export const addToCart = async (req: AuthRequest, res: Response) => {
     if (error instanceof Error && error.message === 'Requested quantity exceeds available stock') {
       return res.status(400).json({ error: error.message });
     }
-    throw error;
+    console.error('Cart persistence unavailable; keeping the cart in memory.', error);
+    fallbackUserIds.add(req.user!.id);
+    const items = demoCarts.get(req.user!.id) || [];
+    const existing = items.find((item) => item.product.id === productId);
+    if ((existing?.quantity || 0) + quantity > product.stock) return res.status(400).json({ error: 'Requested quantity exceeds available stock' });
+    if (existing) existing.quantity += quantity;
+    else items.push({ id: productId, product, quantity, saleApplied: requestedSale && saleDiscount(product) > 0 });
+    demoCarts.set(req.user!.id, items);
+    return res.json(getDemoCart(req.user!.id));
   }
   void writeAudit({ userId: req.user!.id, action: 'ADD_ITEM', entity: 'CART', entityId: String(productId), metadata: { quantity } });
   return getCart(req, res);

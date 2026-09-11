@@ -27,7 +27,7 @@ export const createFeedback = async (req: Request, res: Response): Promise<any> 
     if (!['COMPLAINT', 'SUGGESTION', 'REVIEW'].includes(type)) {
       return res.status(400).json({ error: 'Choose a complaint, suggestion, or review' });
     }
-    if (!name || name.length > 100 || !/^\S+@\S+\.\S+$/.test(email) || email.length > 160) {
+    if (!name || name.length > 100 || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 160) {
       return res.status(400).json({ error: 'Enter a valid name and email address' });
     }
     if (!subject || subject.length > 160 || !message || message.length > 4000) {

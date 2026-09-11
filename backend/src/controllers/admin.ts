@@ -65,7 +65,7 @@ export const createUser = async (req: AuthRequest, res: Response) => {
   const phone = String(req.body.phone || '').trim();
   const address = String(req.body.address || '').trim();
   const passwordError = passwordStrengthError(password);
-  if (!/^\S+@\S+\.\S+$/.test(email) || !name || passwordError || !['ADMIN', 'BUYER', 'SALES_PERSON'].includes(role)) {
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || !name || passwordError || !['ADMIN', 'BUYER', 'SALES_PERSON'].includes(role)) {
     return res.status(400).json({ error: passwordError || 'Valid name, email, and role are required' });
   }
   try {

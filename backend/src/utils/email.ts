@@ -26,7 +26,7 @@ const createTransporter = () => {
 const sendEmail = async (to: string, subject: string, text: string, html: string) => {
   const transporter = createTransporter();
   if (!transporter) {
-    console.warn(`Email skipped for ${to}: SMTP_HOST, SMTP_USER, and SMTP_PASS are required.`);
+    console.warn(`Email skipped for ${safeLogValue(to)}: SMTP_HOST, SMTP_USER, and SMTP_PASS are required.`);
     return false;
   }
 
@@ -34,6 +34,8 @@ const sendEmail = async (to: string, subject: string, text: string, html: string
   await transporter.sendMail({ from, to: to.trim(), subject, text, html });
   return true;
 };
+
+const safeLogValue = (value: unknown) => String(value).replace(/[\r\n]/g, '');
 
 export const sendOrderEmail = async (to: string, orderId: string, order: OrderEmail = {}) => {
   const subject = `ToolKit order confirmation #${orderId}`;
@@ -44,7 +46,7 @@ export const sendOrderEmail = async (to: string, orderId: string, order: OrderEm
   const html = `<div style="font-family:Arial,sans-serif;max-width:560px;color:#111827"><h1 style="color:#2563eb">Order confirmed</h1><p>Hi ${escapeHtml(name)},</p><p>Thanks for your ToolKit order <strong>#${escapeHtml(orderId)}</strong>.</p><p>Total: <strong>${escapeHtml(total)}</strong><br>Payment: ${escapeHtml(payment)}</p><p>We will send another update when it is ready to ship.</p><p>ToolKit</p></div>`;
 
   try {
-    if (await sendEmail(to, subject, text, html)) console.log(`Order confirmation email sent to ${to}.`);
+    if (await sendEmail(to, subject, text, html)) console.log(`Order confirmation email sent to ${safeLogValue(to)}.`);
   } catch (error) {
     console.error('Order email failed without blocking checkout', error);
   }
@@ -57,7 +59,7 @@ export const sendPasswordResetEmail = async (to: string, resetUrl: string) => {
   const html = `<div style="font-family:Arial,sans-serif;max-width:560px;color:#111827"><h1 style="color:#2563eb">Reset your password</h1><p>We received a request to reset your ToolKit password.</p><p><a href="${safeUrl}" style="display:inline-block;background:#2563eb;color:white;padding:12px 18px;text-decoration:none">Reset password</a></p><p>This link expires in 30 minutes. If you did not request this, you can ignore this email.</p></div>`;
 
   try {
-    if (await sendEmail(to, subject, text, html)) console.log(`Password reset email sent to ${to}.`);
+    if (await sendEmail(to, subject, text, html)) console.log(`Password reset email sent to ${safeLogValue(to)}.`);
   } catch (error) {
     console.error('Password reset email failed', error);
   }

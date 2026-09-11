@@ -63,8 +63,8 @@ const LandingPage = () => {
       <section className="relative overflow-hidden bg-[#111827] px-6 py-16 text-white sm:px-12 lg:px-24 lg:py-20">
         <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-12 md:flex-row">
           <motion.div className="max-w-2xl" initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }}>
-            <p className="mb-5 text-sm font-semibold uppercase tracking-[0.24em] text-blue-300">The professional workshop, online</p>
-            <h1 className="mb-6 max-w-3xl text-5xl font-extrabold leading-[1.05] tracking-tight md:text-7xl">Tools that keep work moving.</h1>
+            <p className="mb-5 text-sm font-semibold uppercase tracking-[0.24em] text-blue-300">Your Own Personal Online ToolKit</p>
+            <h1 className="mb-6 max-w-3xl text-5xl font-extrabold leading-[1.05] tracking-tight md:text-7xl">Tools that keep work moving</h1>
             <p className="mb-8 max-w-xl text-lg leading-relaxed text-gray-300">Dependable hand tools, soft tools, and safety equipment selected for precise work, long days, and serious results.</p>
             <div className="flex flex-wrap gap-4">
               <Link to="/products?category=Tools" className="inline-flex items-center gap-2 rounded bg-blue-500 px-7 py-3 font-semibold text-white transition hover:bg-blue-400">Shop Tools <ArrowRight className="h-4 w-4" /></Link>

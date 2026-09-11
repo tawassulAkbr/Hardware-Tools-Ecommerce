@@ -29,7 +29,8 @@ const Navbar = () => {
   }, []);
 
   useEffect(() => {
-    const refreshCartCount = () => {
+    const refreshCartCount = (event) => {
+      if (event?.detail?.delta) return setCartCount((count) => Math.max(0, count + event.detail.delta));
       if (!getAuth()?.token) return setCartCount(0);
       api('/cart').then((cart) => setCartCount(cart.items?.reduce((total, item) => total + item.quantity, 0) || 0)).catch(() => setCartCount(0));
     };
@@ -69,7 +70,7 @@ const Navbar = () => {
                 <Link to={auth.user.role === 'ADMIN' || auth.user.role === 'SALES_PERSON' ? '/admin/dashboard' : '/dashboard'} className="flex items-center hover:text-gray-300 transition">
                   <LayoutDashboard className="w-5 h-5 mr-1" /><span>{auth.user.name}</span>
                 </Link>
-                <button onClick={logout} className="hover:text-gray-300"><LogOut className="w-5 h-5" /></button>
+                <button type="button" onClick={logout} className="hover:text-gray-300"><LogOut className="w-5 h-5" /></button>
               </>
             ) : (
               <Link to="/login" className="flex items-center hover:text-gray-300 transition"><User className="w-5 h-5 mr-1" /><span>Login</span></Link>
@@ -82,14 +83,14 @@ const Navbar = () => {
         </div>
 
         {/* Mobile Menu Button */}
-        <button className="lg:hidden rounded p-2 hover:bg-white/10" onClick={() => setIsOpen(!isOpen)} aria-label={isOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={isOpen}>
+        <button type="button" className="lg:hidden rounded p-2 hover:bg-white/10" onClick={() => setIsOpen(!isOpen)} aria-label={isOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={isOpen}>
           <Menu className="w-6 h-6" />
         </button>
       </div>
 
       {/* Narrow-screen sidebar overlay */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setIsOpen(false)} />
+        <button type="button" aria-label="Close navigation menu" className="fixed inset-0 z-40 border-0 bg-black/50 p-0" onClick={() => setIsOpen(false)} />
       )}
       
       {/* Narrow-screen sidebar */}
@@ -113,7 +114,7 @@ const Navbar = () => {
             <ShoppingCart className="mr-2 h-5 w-5" /> Cart {cartCount > 0 && <span className="ml-2 rounded-full bg-blue-500 px-2 py-0.5 text-xs font-bold">{cartCount}</span>}
           </Link>}
           <button type="button" className="flex items-center" onClick={() => { setDarkMode((value) => !value); setIsOpen(false); }}><span className="mr-2">{darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}</span>{darkMode ? 'Light mode' : 'Dark mode'}</button>
-          {auth && <button onClick={logout} className="flex items-center"><LogOut className="w-5 h-5 mr-2" /> Logout</button>}
+          {auth && <button type="button" onClick={logout} className="flex items-center"><LogOut className="w-5 h-5 mr-2" /> Logout</button>}
         </div>
       </div>
     </nav>

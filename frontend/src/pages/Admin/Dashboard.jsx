@@ -94,7 +94,7 @@ const AdminDashboard = () => {
     <div className="mx-auto max-w-7xl p-6">
       <h1 className="text-3xl font-bold">{isSales ? 'Sales Operations' : 'Admin Dashboard'}</h1>
       {error && <div className="mt-4 rounded bg-red-50 p-3 text-red-700">{error}</div>}
-      <div className="mt-5 flex flex-wrap gap-2">{tabs.map((t) => <button key={t} onClick={() => setTab(t)} className={`rounded px-4 py-2 capitalize ${tab === t ? 'bg-black text-white' : 'bg-white border'}`}>{t}</button>)}</div>
+      <div className="mt-5 flex flex-wrap gap-2">{tabs.map((t) => <button type="button" key={t} onClick={() => setTab(t)} className={`rounded px-4 py-2 capitalize ${tab === t ? 'bg-black text-white' : 'bg-white border'}`}>{t}</button>)}</div>
 
       {tab === 'dashboard' && stats && (
         <section className="mt-6">
@@ -126,9 +126,9 @@ const AdminDashboard = () => {
             </label>
             {form.imageUrl && <img src={form.imageUrl} alt="Product preview" className="h-28 w-full rounded border bg-gray-50 object-contain p-2" />}
             <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} required className="w-full rounded border px-3 py-2"><option value="">Category</option>{childCategories.map((c) => <option key={c.id} value={c.id}>{c.parent?.name} / {c.name}</option>)}</select>
-            <button disabled={uploading} className="rounded bg-black px-4 py-2 text-white disabled:bg-gray-400">{uploading ? 'Uploading...' : 'Save'}</button>
+            <button type="submit" disabled={uploading} className="rounded bg-black px-4 py-2 text-white disabled:bg-gray-400">{uploading ? 'Uploading...' : 'Save'}</button>
           </form>
-          <Table headers={['Product', 'Category', 'Price', 'Stock', 'Actions']}>{products.map((p) => <tr key={p.id}><td>{p.name}</td><td>{p.category?.name}</td><td>{money(p.price)}</td><td>{p.stock}</td><td><button onClick={() => edit(p)} className="mr-2 underline">Edit</button><button onClick={() => remove(p.id)} className="text-red-700 underline">Delete</button></td></tr>)}</Table>
+          <Table headers={['Product', 'Category', 'Price', 'Stock', 'Actions']}>{products.map((p) => <tr key={p.id}><td>{p.name}</td><td>{p.category?.name}</td><td>{money(p.price)}</td><td>{p.stock}</td><td><button type="button" onClick={() => edit(p)} className="mr-2 underline">Edit</button><button type="button" onClick={() => remove(p.id)} className="text-red-700 underline">Delete</button></td></tr>)}</Table>
         </section>
       )}
 
@@ -138,7 +138,7 @@ const AdminDashboard = () => {
           <input required type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} className="rounded border px-3 py-2" placeholder="Email" />
           <input required minLength="6" type="password" value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} className="rounded border px-3 py-2" placeholder="Temporary password" />
           <select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })} className="rounded border px-3 py-2"><option>BUYER</option><option>SALES_PERSON</option><option>ADMIN</option></select>
-          <button className="rounded bg-black px-4 py-2 text-white">Create account</button>
+          <button type="submit" className="rounded bg-black px-4 py-2 text-white">Create account</button>
         </form>
         <Table headers={['Name', 'Email', 'Role', 'Status']}>{users.map((u) => <tr key={u.id}><td>{u.name}</td><td>{u.email}</td><td><select value={u.role} onChange={(e) => updateUser(u.id, { role: e.target.value })}><option>BUYER</option><option>SALES_PERSON</option><option>ADMIN</option></select></td><td><select value={u.status} onChange={(e) => updateUser(u.id, { status: e.target.value })}><option>ACTIVE</option><option>DISABLED</option></select></td></tr>)}</Table>
       </>}
@@ -157,6 +157,6 @@ const Card = ({ icon: Icon, label, value, detail }) => <div className="rounded b
 const Panel = ({ title, children }) => <div className="rounded border border-gray-200 bg-white p-5 shadow-sm"><div className="mb-4 flex items-center justify-between"><h2 className="font-semibold text-gray-900">{title}</h2><BarChart3 className="h-4 w-4 text-gray-400" /></div>{children}</div>;
 const Row = ({ a, b }) => <div className="flex justify-between border-t py-2 text-sm"><span>{a}</span><b>{b}</b></div>;
 const Table = ({ headers, children }) => <div className="mt-6 overflow-x-auto rounded border bg-white"><table className="w-full min-w-[720px] text-left text-sm"><thead className="bg-gray-100">{headers.map((h) => <th key={h} className="p-3">{h}</th>)}</thead><tbody className="[&_td]:border-t [&_td]:p-3">{children}</tbody></table></div>;
-const Maintenance = ({ settings, onSave }) => { const values = Object.fromEntries(settings.map((item) => [item.key, item.value])); const [form, setForm] = useState({ maintenanceMode: values.maintenanceMode || 'false', announcement: values.announcement || '', shippingFee: values.shippingFee || '299' }); return <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="mt-6 max-w-xl space-y-4 rounded border bg-white p-5"><label className="flex items-center gap-3"><input type="checkbox" checked={form.maintenanceMode === 'true'} onChange={(e) => setForm({ ...form, maintenanceMode: String(e.target.checked) })} /> Maintenance mode</label><label className="block text-sm">Announcement<textarea value={form.announcement} onChange={(e) => setForm({ ...form, announcement: e.target.value })} className="mt-1 w-full rounded border p-2" /></label><label className="block text-sm">Shipping fee (PKR)<input value={form.shippingFee} onChange={(e) => setForm({ ...form, shippingFee: e.target.value })} className="mt-1 w-full rounded border p-2" inputMode="decimal" /></label><button className="rounded bg-black px-4 py-2 text-white">Save settings</button></form>; };
+const Maintenance = ({ settings, onSave }) => { const values = Object.fromEntries(settings.map((item) => [item.key, item.value])); const [form, setForm] = useState({ maintenanceMode: values.maintenanceMode || 'false', announcement: values.announcement || '', shippingFee: values.shippingFee || '299' }); return <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="mt-6 max-w-xl space-y-4 rounded border bg-white p-5"><label className="flex items-center gap-3"><input type="checkbox" checked={form.maintenanceMode === 'true'} onChange={(e) => setForm({ ...form, maintenanceMode: String(e.target.checked) })} /> Maintenance mode</label><label className="block text-sm">Announcement<textarea value={form.announcement} onChange={(e) => setForm({ ...form, announcement: e.target.value })} className="mt-1 w-full rounded border p-2" /></label><label className="block text-sm">Shipping fee (PKR)<input value={form.shippingFee} onChange={(e) => setForm({ ...form, shippingFee: e.target.value })} className="mt-1 w-full rounded border p-2" inputMode="decimal" /></label><button type="submit" className="rounded bg-black px-4 py-2 text-white">Save settings</button></form>; };
 
 export default AdminDashboard;
