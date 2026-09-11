@@ -8,7 +8,7 @@ const OrderConfirmation = () => {
   const { state } = useLocation();
   const [order, setOrder] = useState(state?.order || null);
 
-  useEffect(() => { if (!order) api(`/orders/mine/${id}`).then(setOrder).catch(() => {}); }, [id, order]);
+  useEffect(() => { if (!order) api(`/orders/${id}`).then(setOrder).catch(() => {}); }, [id, order]);
 
   if (!order) return <div className="mx-auto max-w-5xl px-6 py-16 text-gray-500">Loading confirmation...</div>;
 

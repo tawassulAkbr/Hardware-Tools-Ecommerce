@@ -1,33 +1,38 @@
 import { useCallback, useEffect, useState } from 'react';
 import { BarChart3, Boxes, CircleDollarSign, PackageCheck, Users } from 'lucide-react';
-import { api, getAuth, money } from '../../api';
+import { API_URL, api, getAuth, money } from '../../api';
+import PageLoader from '../../components/PageLoader';
 
 const emptyProduct = { name: '', description: '', price: '', stock: '', imageUrl: '', categoryId: '' };
 
 const AdminDashboard = () => {
-  const [tab, setTab] = useState('dashboard');
+  const isSales = getAuth()?.user?.role === 'SALES_PERSON';
+  const [tab, setTab] = useState(() => (isSales ? 'inventory' : 'dashboard'));
   const [stats, setStats] = useState(null);
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [users, setUsers] = useState([]);
   const [orders, setOrders] = useState([]);
+  const [feedback, setFeedback] = useState([]);
   const [form, setForm] = useState(emptyProduct);
   const [editingId, setEditingId] = useState(null);
   const [error, setError] = useState('');
   const [logs, setLogs] = useState([]);
   const [settings, setSettings] = useState([]);
   const [userForm, setUserForm] = useState({ name: '', email: '', password: '', role: 'BUYER' });
-  const isSales = getAuth()?.user?.role === 'SALES_PERSON';
+  const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
       const [p, c, o] = await Promise.all([api('/products'), api('/categories'), api('/admin/orders')]);
       setProducts(p); setCategories(c); setOrders(o);
       if (!isSales) {
-        const [d, u, l, m] = await Promise.all([api('/admin/dashboard'), api('/admin/users'), api('/admin/logs'), api('/admin/maintenance')]);
-        setStats(d); setUsers(u); setLogs(l); setSettings(m);
+        const [d, u, l, m, f] = await Promise.all([api('/admin/dashboard'), api('/admin/users'), api('/admin/logs'), api('/admin/maintenance'), api('/admin/feedback')]);
+        setStats(d); setUsers(u); setLogs(l); setSettings(m); setFeedback(f);
       }
-    } catch (err) { setError(err.message); }
+    } catch (err) { setError(err.message); } finally { setLoading(false); }
   }, [isSales]);
   useEffect(() => {
     const timer = window.setTimeout(() => { void load(); }, 0);
@@ -41,6 +46,32 @@ const AdminDashboard = () => {
       setForm(emptyProduct); setEditingId(null); await load();
     } catch (err) { setError(err.message); }
   };
+  const uploadImage = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+      setError('Please choose a PNG, JPG, or WEBP image.');
+      e.target.value = '';
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Image must be smaller than 2 MB.');
+      e.target.value = '';
+      return;
+    }
+    setUploading(true); setError('');
+    try {
+      const data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Could not read the selected image.'));
+        reader.readAsDataURL(file);
+      });
+      const result = await api('/products/upload-image', { method: 'POST', body: JSON.stringify({ data }) });
+      const uploadBase = API_URL.replace(/\/api\/?$/, '');
+      setForm((current) => ({ ...current, imageUrl: result.url.startsWith('http') ? result.url : `${uploadBase}${result.url}` }));
+    } catch (err) { setError(err.message); } finally { setUploading(false); e.target.value = ''; }
+  };
   const edit = (p) => { setEditingId(p.id); setForm({ name: p.name, description: p.description, price: p.price, stock: p.stock, imageUrl: p.imageUrl || '', categoryId: p.categoryId }); };
   const remove = async (id) => { if (confirm('Delete product?')) { await api(`/products/${id}`, { method: 'DELETE' }); await load(); } };
   const updateOrder = async (id, patch) => { await api(`/admin/orders/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }); await load(); };
@@ -51,7 +82,9 @@ const AdminDashboard = () => {
     catch (err) { setError(err.message); }
   };
 
-  const tabs = isSales ? ['inventory', 'orders'] : ['dashboard', 'inventory', 'users', 'orders', 'sales', 'logs', 'maintenance'];
+  if (loading) return <PageLoader />;
+
+  const tabs = isSales ? ['inventory', 'orders'] : ['dashboard', 'inventory', 'users', 'orders', 'sales', 'feedback', 'logs', 'maintenance'];
   const childCategories = categories.filter((c) => c.parentId);
   const activeOrders = orders.filter((order) => order.status !== 'CANCELLED');
   const pendingOrders = orders.filter((order) => ['PENDING', 'CONFIRMED', 'PROCESSING'].includes(order.status));
@@ -87,9 +120,13 @@ const AdminDashboard = () => {
         <section className="mt-6 grid gap-6 lg:grid-cols-[360px_1fr]">
           <form onSubmit={saveProduct} className="h-fit space-y-3 rounded border bg-white p-5">
             <h2 className="font-semibold">{editingId ? 'Edit Product' : 'Add Product'}</h2>
-            {['name', 'description', 'price', 'stock', 'imageUrl'].map((key) => <input key={key} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} required={!['imageUrl'].includes(key)} className="w-full rounded border px-3 py-2" placeholder={key} />)}
+            {['name', 'description', 'price', 'stock', 'imageUrl'].map((key) => <input key={key} type={key === 'price' ? 'number' : key === 'stock' ? 'number' : 'text'} min={['price', 'stock'].includes(key) ? '0' : undefined} step={key === 'stock' ? '1' : key === 'price' ? '0.01' : undefined} value={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.value })} required={!['imageUrl'].includes(key)} className="w-full rounded border px-3 py-2" placeholder={key} />)}
+            <label className="block text-sm text-gray-600">Upload product image
+              <input type="file" accept="image/png,image/jpeg,image/webp" onChange={uploadImage} disabled={uploading} className="mt-1 w-full rounded border px-3 py-2 text-sm" />
+            </label>
+            {form.imageUrl && <img src={form.imageUrl} alt="Product preview" className="h-28 w-full rounded border bg-gray-50 object-contain p-2" />}
             <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })} required className="w-full rounded border px-3 py-2"><option value="">Category</option>{childCategories.map((c) => <option key={c.id} value={c.id}>{c.parent?.name} / {c.name}</option>)}</select>
-            <button className="rounded bg-black px-4 py-2 text-white">Save</button>
+            <button disabled={uploading} className="rounded bg-black px-4 py-2 text-white disabled:bg-gray-400">{uploading ? 'Uploading...' : 'Save'}</button>
           </form>
           <Table headers={['Product', 'Category', 'Price', 'Stock', 'Actions']}>{products.map((p) => <tr key={p.id}><td>{p.name}</td><td>{p.category?.name}</td><td>{money(p.price)}</td><td>{p.stock}</td><td><button onClick={() => edit(p)} className="mr-2 underline">Edit</button><button onClick={() => remove(p.id)} className="text-red-700 underline">Delete</button></td></tr>)}</Table>
         </section>
@@ -109,6 +146,7 @@ const AdminDashboard = () => {
       {tab === 'orders' && <Table headers={['Order', 'Customer', 'Total', 'Status', 'Tracking', 'Ship date']}>{orders.map((o) => <tr key={o.id}><td>#{o.id}</td><td>{o.user?.name}</td><td>{money(o.totalAmount)}</td><td><select value={o.status} onChange={(e) => updateOrder(o.id, { status: e.target.value })}>{['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map((s) => <option key={s}>{s}</option>)}</select></td><td><input defaultValue={o.carrierName || ''} onBlur={(e) => updateOrder(o.id, { carrierName: e.target.value })} className="w-28 rounded border px-2" placeholder="Carrier" /> <input defaultValue={o.trackingNumber || ''} onBlur={(e) => updateOrder(o.id, { trackingNumber: e.target.value })} className="w-32 rounded border px-2" placeholder="Tracking" /></td><td><input type="date" defaultValue={o.shippingDate ? new Date(o.shippingDate).toISOString().slice(0, 10) : ''} onBlur={(e) => updateOrder(o.id, { shippingDate: e.target.value || null })} className="rounded border px-2" /></td></tr>)}</Table>}
 
       {tab === 'sales' && stats && <Panel title="Sales by Payment">{Object.entries(stats.byPayment || {}).map(([k, v]) => <div key={k} className="mb-3"><div className="mb-1 flex justify-between"><span>{k}</span><b>{money(v)}</b></div><div className="h-3 rounded bg-gray-200"><div className="h-3 rounded bg-black" style={{ width: `${Math.min(100, (v / Math.max(1, stats.totalSales)) * 100)}%` }} /></div></div>)}</Panel>}
+      {tab === 'feedback' && <section className="mt-6 overflow-x-auto rounded border bg-white"><table className="w-full min-w-[900px] text-left text-sm"><thead className="bg-gray-100"><tr>{['Type', 'From', 'Subject / message', 'Rating', 'Status', 'Action'].map((heading) => <th key={heading} className="p-3">{heading}</th>)}</tr></thead><tbody className="[&_td]:border-t [&_td]:p-3">{feedback.map((item) => <tr key={item.id}><td className="font-semibold">{item.type}</td><td><div>{item.name}</div><div className="text-xs text-gray-500">{item.email}</div></td><td><div className="font-medium">{item.subject}</div><div className="max-w-sm text-xs text-gray-500">{item.message}</div></td><td>{item.rating ? `${item.rating}/5` : '—'}</td><td>{item.status}</td><td><select value={item.status} onChange={async (event) => { try { await api(`/admin/feedback/${item.id}`, { method: 'PATCH', body: JSON.stringify({ status: event.target.value }) }); await load(); } catch (err) { setError(err.message); } }} className="rounded border px-2 py-1"><option value="NEW">New</option><option value="APPROVED">Approve</option><option value="REJECTED">Reject</option></select></td></tr>)}{!feedback.length && <tr><td colSpan="6" className="p-8 text-center text-gray-500">No feedback or reviews received yet.</td></tr>}</tbody></table></section>}
       {tab === 'logs' && <Panel title="Execution logs">{logs.map((log) => <Row key={log.id} a={`${log.action} ${log.entity}`} b={new Date(log.createdAt).toLocaleString()} />)}{!logs.length && <p className="text-sm text-gray-500">No logs recorded yet.</p>}</Panel>}
       {tab === 'maintenance' && <Maintenance settings={settings} onSave={async (values) => { await api('/admin/maintenance', { method: 'PATCH', body: JSON.stringify(values) }); await load(); }} />}
     </div>

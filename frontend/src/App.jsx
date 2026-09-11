@@ -20,7 +20,7 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setLoading(false), 250);
+    const timer = window.setTimeout(() => setLoading(false), 2000);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -29,7 +29,7 @@ function App() {
     if (!stored?.token) return;
     // Rehydrate the user from the server after a refresh while preserving the
     // token if the backend is temporarily unavailable.
-    api('/auth/me').then((result) => {
+    api('/auth/profile').then((result) => {
       if (result.user) {
         setAuth({ ...stored, user: result.user });
         window.dispatchEvent(new Event('auth-change'));

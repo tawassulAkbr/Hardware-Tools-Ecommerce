@@ -1,0 +1,26 @@
+[
+  {
+    "id": -2,
+    "type": "REVIEW",
+    "name": "Alpha Bravo",
+    "email": "alphacharlieb2@gmail.com",
+    "subject": "Products",
+    "message": "Love from Pakistan",
+    "rating": 5,
+    "status": "APPROVED",
+    "createdAt": "2026-09-11T13:22:24.295Z",
+    "updatedAt": "2026-09-11T13:22:41.693Z"
+  },
+  {
+    "id": -1,
+    "type": "SUGGESTION",
+    "name": "Alpha Bravo",
+    "email": "alphacharlieb2@gmail.com",
+    "subject": "Products",
+    "message": "Love from pakistam",
+    "rating": null,
+    "status": "NEW",
+    "createdAt": "2026-09-11T13:22:07.942Z",
+    "updatedAt": "2026-09-11T13:22:07.942Z"
+  }
+]

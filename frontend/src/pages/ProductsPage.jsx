@@ -49,35 +49,33 @@ const ProductsPage = () => {
   const [categories, setCategories] = useState([]);
   const [subcategory, setSubcategory] = useState(searchParams.get('subcategory') || '');
   const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loadedQuery, setLoadedQuery] = useState(null);
   const [adding, setAdding] = useState(null);
   const [inventoryReady, setInventoryReady] = useState(false);
+  const queryKey = `${categoryQuery || ''}|${subcategory}|${searchQuery}`;
+  const loading = loadedQuery !== queryKey;
 
   useEffect(() => {
     let active = true;
     const localProducts = filterFallbackProducts({ category: categoryQuery, subcategory, search: searchQuery });
-    setProducts(localProducts);
-    setLoading(false);
-    setInventoryReady(false);
-    setMessage('');
     const params = new URLSearchParams();
     if (categoryQuery) params.set('category', categoryQuery);
     if (subcategory) params.set('subcategory', subcategory);
     if (searchQuery) params.set('search', searchQuery);
     api(`/products?${params}`).then((data) => {
-      if (active) { setProducts(data.length ? data : localProducts); setInventoryReady(true); }
+      if (active) { setProducts(data.length ? data : localProducts); setInventoryReady(true); setMessage(''); }
     }).catch((err) => {
       if (active) {
-        setProducts(filterFallbackProducts({ category: categoryQuery, subcategory, search: searchQuery }));
+        setProducts(localProducts);
         setMessage(`Backend unavailable. Showing the local tool catalog. (${err.message})`);
         setInventoryReady(true);
       }
     }).finally(() => {
-      if (active) setLoading(false);
+      if (active) setLoadedQuery(queryKey);
     });
     api('/categories').then((data) => { if (active) setCategories(data); }).catch(() => { if (active) setCategories(fallbackCategories); });
     return () => { active = false; };
-  }, [categoryQuery, subcategory, searchQuery]);
+  }, [categoryQuery, subcategory, searchQuery, queryKey]);
 
   const add = async (productId) => {
     if (!getAuth()?.token) return setMessage('Please login to add items to your cart.');

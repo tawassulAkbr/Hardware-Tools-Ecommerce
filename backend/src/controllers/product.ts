@@ -2,6 +2,9 @@ import { Request, Response } from 'express';
 import { prisma } from '../index';
 import { filteredFallbackProducts } from '../data/catalog';
 import { writeAudit } from '../utils/audit';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import crypto from 'node:crypto';
 
 const productData = (body: any) => ({
   name: String(body.name || '').trim().slice(0, 160),
@@ -15,7 +18,21 @@ const productData = (body: any) => ({
 const isValidProduct = (data: ReturnType<typeof productData>) =>
   Boolean(data.name && data.description && Number.isFinite(data.price) && data.price >= 0 &&
     Number.isInteger(data.stock) && data.stock >= 0 && Number.isInteger(data.categoryId) && data.categoryId > 0 &&
-    (!data.imageUrl || /^https?:\/\//i.test(data.imageUrl)));
+    (!data.imageUrl || /^(https?:\/\/|\/images\/|\/uploads\/)/i.test(data.imageUrl)));
+
+export const uploadProductImage = async (req: Request, res: Response) => {
+  const dataUrl = String(req.body?.data || '');
+  const match = dataUrl.match(/^data:(image\/(?:png|jpeg|jpg|webp));base64,([A-Za-z0-9+/=]+)$/i);
+  if (!match) return res.status(400).json({ error: 'Only PNG, JPG, or WEBP images are allowed' });
+  const buffer = Buffer.from(match[2], 'base64');
+  if (!buffer.length || buffer.length > 2 * 1024 * 1024) return res.status(400).json({ error: 'Image must be smaller than 2 MB' });
+  const extension = match[1].toLowerCase().replace('jpeg', 'jpg').replace('image/', '');
+  const directory = path.resolve(__dirname, '../../uploads');
+  await fs.mkdir(directory, { recursive: true });
+  const filename = `${crypto.randomUUID()}.${extension}`;
+  await fs.writeFile(path.join(directory, filename), buffer, { flag: 'wx' });
+  return res.status(201).json({ url: `/uploads/${filename}` });
+};
 
 export const listProducts = async (req: Request, res: Response) => {
   const search = String(req.query.search || '').trim();

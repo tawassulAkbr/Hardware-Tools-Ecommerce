@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { dashboard, listUsers, createUser, updateUser, deleteUser, listAuditLogs, getMaintenance, updateMaintenance } from '../controllers/admin';
 import { listAllOrders, updateOrderAdmin } from '../controllers/order';
 import { authenticate, authorize } from '../middlewares/auth';
+import { listFeedback, updateFeedbackStatus } from '../controllers/feedback';
 
 const router = Router();
 router.use(authenticate);
@@ -15,4 +16,6 @@ router.patch('/orders/:id', authorize('ADMIN', 'SALES_PERSON'), updateOrderAdmin
 router.get('/logs', authorize('ADMIN'), listAuditLogs);
 router.get('/maintenance', authorize('ADMIN'), getMaintenance);
 router.patch('/maintenance', authorize('ADMIN'), updateMaintenance);
+router.get('/feedback', authorize('ADMIN'), listFeedback);
+router.patch('/feedback/:id', authorize('ADMIN'), updateFeedbackStatus);
 export default router;

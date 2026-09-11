@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, Check, CreditCard, LockKeyhole, MapPin, UserRound } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, getAuth, money } from '../../api';
+import PageLoader from '../../components/PageLoader';
 
 const Checkout = () => {
   const auth = getAuth();
@@ -18,13 +19,13 @@ const Checkout = () => {
     try {
       const payload = Object.fromEntries(new FormData(e.currentTarget).entries());
       ['cardName', 'cardNumber', 'cardExpiry', 'cardCvv', 'walletName', 'walletNumber'].forEach((field) => delete payload[field]);
-      const order = await api('/orders/checkout', { method: 'POST', body: JSON.stringify({ ...payload, email: auth?.user?.email }) });
+      const order = await api('/orders', { method: 'POST', body: JSON.stringify({ ...payload, email: auth?.user?.email }) });
       window.dispatchEvent(new Event('cart-change'));
       navigate(`/order-confirmation/${order.id}`, { state: { order } });
     } catch (err) { setError(err.message); } finally { setLoading(false); }
   };
 
-  if (!cart) return <div className="mx-auto max-w-6xl px-6 py-16 text-gray-500">Preparing checkout...</div>;
+  if (!cart) return <PageLoader />;
 
   return (
     <div className="min-h-screen bg-gray-50 px-6 py-10 sm:px-10 lg:px-16">

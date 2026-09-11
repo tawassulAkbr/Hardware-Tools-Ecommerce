@@ -11,12 +11,12 @@ const Dashboard = () => {
   const [profile, setProfile] = useState({ name: auth?.user?.name || '', phone: auth?.user?.phone || '', address: auth?.user?.address || '' });
   const [saved, setSaved] = useState('');
 
-  useEffect(() => { api('/orders/mine').then(setOrders).catch((err) => setError(err.message)); }, []);
+  useEffect(() => { api('/orders').then(setOrders).catch((err) => setError(err.message)); }, []);
 
   const updateStatus = async (id, status) => {
     try {
-      await api(`/orders/mine/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
-      setOrders(await api('/orders/mine'));
+      await api(`/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+      setOrders(await api('/orders'));
     } catch (err) { setError(err.message); }
   };
 
@@ -28,7 +28,7 @@ const Dashboard = () => {
   const saveProfile = async (e) => {
     e.preventDefault(); setSaved(''); setError('');
     try {
-      const result = await api('/auth/me', { method: 'PATCH', body: JSON.stringify(profile) });
+      const result = await api('/auth/profile', { method: 'PATCH', body: JSON.stringify(profile) });
       const next = { ...getAuth(), user: result.user }; localStorage.setItem('toolkit_auth', JSON.stringify(next));
       window.dispatchEvent(new Event('auth-change')); setSaved('Profile updated.');
     } catch (err) { setError(err.message); }
@@ -36,7 +36,7 @@ const Dashboard = () => {
 
   const deleteProfile = async () => {
     if (!confirm('Deactivate your account?')) return;
-    await api('/auth/me', { method: 'DELETE' }); localStorage.removeItem('toolkit_auth'); window.location.href = '/';
+    await api('/auth/profile', { method: 'DELETE' }); localStorage.removeItem('toolkit_auth'); window.location.href = '/';
   };
 
   return (

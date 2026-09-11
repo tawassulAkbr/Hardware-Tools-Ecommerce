@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { ArrowRight, BadgeCheck, Mail, MapPin, Phone, ShieldCheck, Star, Truck } from 'lucide-react';
 import { fallbackProducts, saleDiscount } from '../data/catalog';
-import { money } from '../api';
+import { api, money } from '../api';
 
 const heroImages = ['/images/H1.png', '/images/H2.png', '/images/H3.png'];
 const toolSubcategories = [
@@ -45,11 +45,18 @@ const FeaturedProductImage = ({ product }) => {
 
 const LandingPage = () => {
   const [heroIndex, setHeroIndex] = useState(0);
+  const [approvedReviews, setApprovedReviews] = useState([]);
 
   useEffect(() => {
     const timer = window.setInterval(() => setHeroIndex((index) => (index + 1) % heroImages.length), 2800);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    api('/feedback/reviews').then(setApprovedReviews).catch(() => setApprovedReviews([]));
+  }, []);
+
+  const reviews = [...customerReviews, ...approvedReviews];
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -146,7 +153,7 @@ const LandingPage = () => {
         </div>
         <div className="reviews-reel mt-10" aria-label="Customer reviews">
           <div className="reviews-reel__track">
-            {[...customerReviews, ...customerReviews].map((review, index) => <article key={`${review.name}-${index}`} className="reviews-reel__item"><div className="flex items-center justify-between gap-4"><span className="flex text-amber-400" aria-label="5 out of 5 stars">{[1, 2, 3, 4, 5].map((star) => <Star key={star} className="h-4 w-4 fill-current" />)}</span><span className="text-xs font-semibold uppercase tracking-wide text-gray-400">Verified buyer</span></div><p className="mt-5 text-base leading-7 text-gray-700">“{review.quote}”</p><div className="mt-6 border-t border-gray-200 pt-4"><p className="font-semibold text-gray-900">{review.name}</p><p className="text-sm text-gray-500">{review.role} · {review.city}</p></div></article>)}
+            {[...reviews, ...reviews].map((review, index) => { const rating = review.rating || 5; return <article key={`${review.name}-${index}`} className="reviews-reel__item"><div className="flex items-center justify-between gap-4"><span className="flex text-amber-400" aria-label={`${rating} out of 5 stars`}>{[1, 2, 3, 4, 5].map((star) => <Star key={star} className={`h-4 w-4 ${star <= rating ? 'fill-current' : ''}`} />)}</span><span className="text-xs font-semibold uppercase tracking-wide text-gray-400">{review.rating ? 'Customer review' : 'Verified buyer'}</span></div><p className="mt-5 text-base leading-7 text-gray-700">“{review.message || review.quote}”</p><div className="mt-6 border-t border-gray-200 pt-4"><p className="font-semibold text-gray-900">{review.name}</p><p className="text-sm text-gray-500">{review.role || review.subject}</p></div></article>; })}
           </div>
         </div>
       </section>

@@ -3,6 +3,7 @@ import { ArrowRight, Minus, Plus, ShieldCheck, ShoppingBag, Trash2, Truck } from
 import { Link } from 'react-router-dom';
 import { api, money } from '../../api';
 import { catalogueNameFor } from '../../data/catalog';
+import PageLoader from '../../components/PageLoader';
 
 const Cart = () => {
   const [cart, setCart] = useState(null);
@@ -18,7 +19,7 @@ const Cart = () => {
     try { setCart(await api(`/cart/items/${id}`, { method: 'DELETE' })); window.dispatchEvent(new Event('cart-change')); } catch (err) { setError(err.message); }
   };
 
-  if (!cart) return <div className="mx-auto max-w-6xl px-6 py-16 text-gray-500">Loading your cart...</div>;
+  if (!cart) return <PageLoader />;
 
   return (
     <div className="min-h-screen bg-gray-50 px-6 py-10 sm:px-10 lg:px-16">

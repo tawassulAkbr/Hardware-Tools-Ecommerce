@@ -15,17 +15,17 @@ const safetyProducts = [
   ['Tinted Safety Glasses', 'Safety Glasses', 'Safety 8.png', 1899],
   ['Welding Protection Goggles', 'Welding Goggles', 'Safety 9.png', 2799],
 ].map(([name, category, filename, price], index) => ({
-  id: -(20 + index + 1), name, description: 'Reliable protective equipment for workshop and site use.', price: Number(price), stock: 10 + index, imageUrl: image(String(filename)), category: { id: -(30 + index), name: String(category), parent: { id: -20, name: 'Safety Equipment' } },
+  id: -(20 + index + 1), name, description: 'Reliable protective equipment for workshop and site use.', price: Number(price), stock: 100 + index, imageUrl: image(String(filename)), category: { id: -(30 + index), name: String(category), parent: { id: -20, name: 'Safety Equipment' } },
 }));
 
 const toolProducts = [
   ...Array.from({ length: 10 }, (_, index) => {
     const number = index + 1;
-    return { id: -(number), name: handNames[index], description: `Professional ${handNames[index].toLowerCase()} for dependable workshop and site work.`, price: handPrices[index], stock: 12 + index, imageUrl: image(`Hand Tool ${number}.png`), category: { id: -1, name: 'Hand Tools', parent: { id: -10, name: 'Tools' } } };
+    return { id: -(number), name: handNames[index], description: `Professional ${handNames[index].toLowerCase()} for dependable workshop and site work.`, price: handPrices[index], stock: 100 + index, imageUrl: image(`Hand Tool ${number}.png`), category: { id: -1, name: 'Hand Tools', parent: { id: -10, name: 'Tools' } } };
   }),
   ...Array.from({ length: 10 }, (_, index) => {
     const number = index + 1;
-    return { id: -(10 + number), name: softNames[index], description: `Protective ${softNames[index].toLowerCase()} designed for careful handling and finishing work.`, price: softPrices[index], stock: 14 + index, imageUrl: image(`Soft Tool ${number}.png`), category: { id: -2, name: 'Soft Tools', parent: { id: -10, name: 'Tools' } } };
+    return { id: -(10 + number), name: softNames[index], description: `Protective ${softNames[index].toLowerCase()} designed for careful handling and finishing work.`, price: softPrices[index], stock: 100 + index, imageUrl: image(`Soft Tool ${number}.png`), category: { id: -2, name: 'Soft Tools', parent: { id: -10, name: 'Tools' } } };
   }),
 ];
 

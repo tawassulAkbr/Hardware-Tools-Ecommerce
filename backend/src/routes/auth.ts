@@ -9,6 +9,10 @@ router.post('/google', googleLogin);
 router.get('/config', googleConfig);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:token', resetPassword);
+router.get('/profile', authenticate, me);
+router.patch('/profile', authenticate, updateProfile);
+router.delete('/profile', authenticate, deleteProfile);
+// Backward-compatible aliases for existing clients.
 router.get('/me', authenticate, me);
 router.patch('/me', authenticate, updateProfile);
 router.delete('/me', authenticate, deleteProfile);
