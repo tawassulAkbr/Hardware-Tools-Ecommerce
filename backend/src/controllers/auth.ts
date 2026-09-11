@@ -7,17 +7,21 @@ import path from 'node:path';
 import { prisma } from '../index';
 import { sendPasswordResetEmail } from '../utils/email';
 import { AuthRequest } from '../middlewares/auth';
-import { revokeToken } from '../utils/security';
+import { disableFallbackUser, revokeToken } from '../utils/security';
 import { writeAudit } from '../utils/audit';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'toolkit_super_secret_key';
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret || secret.length < 32) throw new Error('JWT_SECRET must be configured with at least 32 characters');
+  return secret;
+};
 const demoUsers = [
-  { id: -1, email: 'admin@toolkit.com', password: 'admin123', name: 'ToolKit Admin', phone: '', address: '', role: 'ADMIN' as const, status: 'ACTIVE' },
-  { id: -2, email: 'buyer@toolkit.com', password: 'buyer123', name: 'Demo Buyer', phone: '', address: '', role: 'BUYER' as const, status: 'ACTIVE' },
-  { id: -3, email: 'sales@toolkit.com', password: 'sales123', name: 'ToolKit Sales', phone: '', address: '', role: 'SALES_PERSON' as const, status: 'ACTIVE' },
+  { id: -1, email: 'admin@toolkit.com', password: 'Admin123!', name: 'ToolKit Admin', phone: '', address: '', role: 'ADMIN' as const, status: 'ACTIVE' },
+  { id: -2, email: 'buyer@toolkit.com', password: 'Buyer123!', name: 'Demo Buyer', phone: '', address: '', role: 'BUYER' as const, status: 'ACTIVE' },
+  { id: -3, email: 'sales@toolkit.com', password: 'Sales123!', name: 'ToolKit Sales', phone: '', address: '', role: 'SALES_PERSON' as const, status: 'ACTIVE' },
 ];
 type LocalUser = { id: number; email: string; password: string; name: string; phone: string; address: string; role: 'BUYER' | 'SALES_PERSON'; status: string };
-const localUsersPath = path.join(process.cwd(), 'data', 'local-users.json');
+const localUsersPath = path.resolve(__dirname, '../../data/local-users.json');
 const localUsers: LocalUser[] = (() => {
   try { return JSON.parse(fs.readFileSync(localUsersPath, 'utf8')) as LocalUser[]; } catch { return []; }
 })();
@@ -31,6 +35,16 @@ const persistGoogleFallback = (user: LocalUser) => {
 };
 const resetTokens = new Map<string, { email: string; expiresAt: number }>();
 const isRealGoogleClientId = (clientId?: string) => Boolean(clientId && !/^your([_-]|$)/i.test(clientId));
+
+export const passwordStrengthError = (password: unknown) => {
+  const value = String(password || '');
+  if (value.length < 8) return 'Password must be at least 8 characters.';
+  if (!/[a-z]/.test(value)) return 'Password must include a lowercase letter.';
+  if (!/[A-Z]/.test(value)) return 'Password must include an uppercase letter.';
+  if (!/[0-9]/.test(value)) return 'Password must include a number.';
+  if (!/[^A-Za-z0-9]/.test(value)) return 'Password must include a special character.';
+  return null;
+};
 
 export const googleConfig = (_req: Request, res: Response) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -46,7 +60,7 @@ const passwordMatches = async (user: { password: string }, password: string) => 
 
 const authResponse = (user: { id: number; email: string; name: string; phone?: string; address?: string; role: 'ADMIN' | 'BUYER' | 'SALES_PERSON'; status: string }) => ({
   user: { id: user.id, email: user.email, name: user.name, phone: user.phone || '', address: user.address || '', role: user.role, status: user.status },
-  token: jwt.sign({ id: user.id, role: user.role, jti: crypto.randomUUID() }, JWT_SECRET, { expiresIn: '7d' }),
+  token: jwt.sign({ id: user.id, role: user.role, jti: crypto.randomUUID() }, getJwtSecret(), { expiresIn: '7d' }),
 });
 
 export { revokeToken };
@@ -59,6 +73,8 @@ export const register = async (req: Request, res: Response): Promise<any> => {
     if (!email || !password || !name || !phone || !address) {
       return res.status(400).json({ error: 'Name, email, phone, address, and password are required' });
     }
+    const passwordError = passwordStrengthError(password);
+    if (passwordError) return res.status(400).json({ error: passwordError });
 
     const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
@@ -79,13 +95,13 @@ export const register = async (req: Request, res: Response): Promise<any> => {
       },
     });
 
-    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
-
     return res.status(201).json(authResponse(user));
   } catch (error) {
     console.error(error);
     const { email, password, name, phone, address } = req.body;
     const normalizedEmail = String(email || '').trim().toLowerCase();
+    const passwordError = passwordStrengthError(password);
+    if (passwordError) return res.status(400).json({ error: passwordError });
     if (demoUsers.some((user) => user.email === normalizedEmail) || localUsers.some((user) => user.email === normalizedEmail)) {
       return res.status(400).json({ error: 'Email already exists' });
     }
@@ -111,13 +127,13 @@ export const login = async (req: Request, res: Response): Promise<any> => {
     } catch (error) {
       console.error('Database unavailable during login; checking demo account.', error);
       const fallbackUser = [...demoUsers, ...localUsers].find((candidate) => candidate.email === email);
-      if (!fallbackUser || !(await passwordMatches(fallbackUser, password))) return res.status(503).json({ error: 'Database unavailable. Demo accounts and locally saved accounts are still available.' });
+      if (!fallbackUser || fallbackUser.status !== 'ACTIVE' || !(await passwordMatches(fallbackUser, password))) return res.status(503).json({ error: 'Database unavailable. Demo accounts and locally saved accounts are still available.' });
       return res.status(200).json(authResponse(fallbackUser));
     }
 
     if (!user) {
       const fallbackUser = [...demoUsers, ...localUsers].find((candidate) => candidate.email === email);
-      if (fallbackUser && await passwordMatches(fallbackUser, password)) return res.status(200).json(authResponse(fallbackUser));
+      if (fallbackUser && fallbackUser.status === 'ACTIVE' && await passwordMatches(fallbackUser, password)) return res.status(200).json(authResponse(fallbackUser));
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
@@ -202,6 +218,7 @@ export const deleteProfile = async (req: AuthRequest, res: Response): Promise<an
   if (req.user!.id < 0) {
     const user = [...demoUsers, ...localUsers].find((candidate) => candidate.id === req.user!.id);
     if (user) user.status = 'DISABLED';
+    disableFallbackUser(req.user!.id);
     return res.status(204).send();
   }
   await prisma.user.update({ where: { id: req.user!.id }, data: { status: 'DISABLED' } });
@@ -238,7 +255,8 @@ export const resetPassword = async (req: Request, res: Response): Promise<any> =
     resetTokens.delete(token);
     return res.status(400).json({ error: 'This reset link is invalid or expired.' });
   }
-  if (password.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+  const passwordError = passwordStrengthError(password);
+  if (passwordError) return res.status(400).json({ error: passwordError });
 
   const fallbackUser = [...demoUsers, ...localUsers].find((user) => user.email === reset.email);
   if (fallbackUser) {

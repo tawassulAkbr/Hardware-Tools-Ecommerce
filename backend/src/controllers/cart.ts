@@ -6,6 +6,16 @@ import { writeAudit } from '../utils/audit';
 
 const SHIPPING_FEE = 299;
 
+export const getShippingFee = async () => {
+  try {
+    const setting = await prisma.systemSetting.findUnique({ where: { key: 'shippingFee' }, select: { value: true } });
+    const fee = Number(setting?.value);
+    return Number.isFinite(fee) && fee >= 0 ? fee : SHIPPING_FEE;
+  } catch {
+    return SHIPPING_FEE;
+  }
+};
+
 export const saleDiscount = (product: { name?: unknown }) => {
   const handNames = ['Adjustable Wrench', 'Claw Hammer', 'Precision Screwdriver Set', 'Combination Pliers', 'Measuring Tape', 'Utility Knife', 'Pipe Wrench', 'Hex Key Set', 'Cold Chisel Set', 'Ratchet Socket Set'];
   const index = handNames.indexOf(String(product.name || ''));
@@ -17,10 +27,11 @@ const cartProduct = (product: any, applied = false) => ({ ...product, price: sal
 
 const cartInclude = { items: { include: { product: { include: { category: true } } } } };
 
-const summarize = (cart: any) => {
+const summarize = (cart: any, shippingFee = SHIPPING_FEE) => {
   const items = cart.items.map((item: any) => ({ ...item, product: cartProduct(item.product, item.saleApplied) }));
   const subtotal = items.reduce((sum: number, item: any) => sum + item.product.price * item.quantity, 0);
-  return { ...cart, items, subtotal, shippingFee: items.length ? SHIPPING_FEE : 0, total: subtotal + (items.length ? SHIPPING_FEE : 0) };
+  const appliedShippingFee = items.length ? shippingFee : 0;
+  return { ...cart, items, subtotal, shippingFee: appliedShippingFee, total: subtotal + appliedShippingFee };
 };
 
 export const demoCarts = new Map<number, any[]>();
@@ -46,7 +57,7 @@ export const getCart = async (req: AuthRequest, res: Response) => {
       update: {},
       include: cartInclude,
     });
-    return res.json(summarize(cart));
+    return res.json(summarize(cart, await getShippingFee()));
   } catch (error) {
     console.error('Cart database unavailable.', error);
     fallbackUserIds.add(req.user!.id);
@@ -159,5 +170,16 @@ export const removeCartItem = async (req: AuthRequest, res: Response) => {
   if (!item || item.cart.userId !== req.user!.id) return res.status(404).json({ error: 'Cart item not found' });
   await prisma.cartItem.delete({ where: { id } });
   await writeAudit({ userId: req.user!.id, action: 'REMOVE_ITEM', entity: 'CART', entityId: String(id) });
+  return getCart(req, res);
+};
+
+export const clearCart = async (req: AuthRequest, res: Response) => {
+  if (isFallbackUser(req.user!.id)) {
+    clearDemoCart(req.user!.id);
+    return res.json(getDemoCart(req.user!.id));
+  }
+  const cart = await prisma.cart.findUnique({ where: { userId: req.user!.id } });
+  if (cart) await prisma.cartItem.deleteMany({ where: { cartId: cart.id } });
+  await writeAudit({ userId: req.user!.id, action: 'CLEAR', entity: 'CART', entityId: String(req.user!.id) });
   return getCart(req, res);
 };

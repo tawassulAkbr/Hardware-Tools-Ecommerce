@@ -11,11 +11,24 @@ const Login = () => {
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
+  const passwordError = (password) => {
+    if (password.length < 8) return 'Password must be at least 8 characters.';
+    if (!/[a-z]/.test(password)) return 'Password must include a lowercase letter.';
+    if (!/[A-Z]/.test(password)) return 'Password must include an uppercase letter.';
+    if (!/[0-9]/.test(password)) return 'Password must include a number.';
+    if (!/[^A-Za-z0-9]/.test(password)) return 'Password must include a special character.';
+    return '';
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault(); setLoading(true); setError('');
     const form = new FormData(event.currentTarget);
     const payload = Object.fromEntries(form.entries());
-    if (!isLogin && payload.password !== payload.confirmPassword) { setError('Passwords do not match.'); setLoading(false); return; }
+    if (!isLogin) {
+      const strengthError = passwordError(payload.password);
+      if (strengthError) { setError(strengthError); setLoading(false); return; }
+      if (payload.password !== payload.confirmPassword) { setError('Passwords do not match.'); setLoading(false); return; }
+    }
     delete payload.confirmPassword;
     try {
       const auth = await api(isLogin ? '/auth/login' : '/auth/register', { method: 'POST', body: JSON.stringify(payload) });

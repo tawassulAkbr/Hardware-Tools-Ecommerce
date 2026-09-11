@@ -6,6 +6,7 @@ const Dashboard = () => {
   const [orders, setOrders] = useState([]);
   const [trackId, setTrackId] = useState('');
   const [tracked, setTracked] = useState(null);
+  const [trackError, setTrackError] = useState('');
   const [error, setError] = useState('');
   const [profile, setProfile] = useState({ name: auth?.user?.name || '', phone: auth?.user?.phone || '', address: auth?.user?.address || '' });
   const [saved, setSaved] = useState('');
@@ -20,8 +21,8 @@ const Dashboard = () => {
   };
 
   const track = async (e) => {
-    e.preventDefault();
-    try { setTracked(await api(`/orders/track/${trackId}`)); } catch (err) { setError(err.message); }
+    e.preventDefault(); setTrackError(''); setTracked(null);
+    try { setTracked(await api(`/orders/track/${trackId.trim().toUpperCase()}`)); } catch (err) { setTrackError(err.message); }
   };
 
   const saveProfile = async (e) => {
@@ -48,7 +49,8 @@ const Dashboard = () => {
         <form onSubmit={track} className="rounded border bg-white p-5 md:col-span-2">
           <label className="text-sm text-gray-600">Track by Order ID</label>
           <div className="mt-2 flex gap-2"><input value={trackId} onChange={(e) => setTrackId(e.target.value)} className="flex-1 rounded border px-3 py-2" placeholder="9-character ID" /><button className="rounded bg-black px-4 text-white">Track</button></div>
-          {tracked && <p className="mt-3 text-sm">Status: <b>{tracked.status}</b> Carrier: {tracked.carrierName || 'Pending'} Tracking: {tracked.trackingNumber || 'Pending'}</p>}
+          {trackError && <p className="mt-3 rounded bg-red-50 p-2 text-sm text-red-700">{trackError}</p>}
+          {tracked && <p className="mt-3 rounded bg-emerald-50 p-2 text-sm text-emerald-800">Status: <b>{tracked.status}</b> Carrier: {tracked.carrierName || 'Pending'} Tracking: {tracked.trackingNumber || 'Pending'}</p>}
         </form>
       </div>
       <form onSubmit={saveProfile} className="mt-8 rounded border bg-white p-5">

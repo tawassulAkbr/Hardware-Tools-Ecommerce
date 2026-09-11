@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { BarChart3, Boxes, CircleDollarSign, PackageCheck, Users } from 'lucide-react';
 import { api, getAuth, money } from '../../api';
 
@@ -16,9 +16,10 @@ const AdminDashboard = () => {
   const [error, setError] = useState('');
   const [logs, setLogs] = useState([]);
   const [settings, setSettings] = useState([]);
+  const [userForm, setUserForm] = useState({ name: '', email: '', password: '', role: 'BUYER' });
   const isSales = getAuth()?.user?.role === 'SALES_PERSON';
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const [p, c, o] = await Promise.all([api('/products'), api('/categories'), api('/admin/orders')]);
       setProducts(p); setCategories(c); setOrders(o);
@@ -27,8 +28,11 @@ const AdminDashboard = () => {
         setStats(d); setUsers(u); setLogs(l); setSettings(m);
       }
     } catch (err) { setError(err.message); }
-  };
-  useEffect(() => { load(); }, []);
+  }, [isSales]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   const saveProduct = async (e) => {
     e.preventDefault();
@@ -41,6 +45,11 @@ const AdminDashboard = () => {
   const remove = async (id) => { if (confirm('Delete product?')) { await api(`/products/${id}`, { method: 'DELETE' }); await load(); } };
   const updateOrder = async (id, patch) => { await api(`/admin/orders/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }); await load(); };
   const updateUser = async (id, patch) => { await api(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(patch) }); await load(); };
+  const createUser = async (e) => {
+    e.preventDefault();
+    try { await api('/admin/users', { method: 'POST', body: JSON.stringify(userForm) }); setUserForm({ name: '', email: '', password: '', role: 'BUYER' }); await load(); }
+    catch (err) { setError(err.message); }
+  };
 
   const tabs = isSales ? ['inventory', 'orders'] : ['dashboard', 'inventory', 'users', 'orders', 'sales', 'logs', 'maintenance'];
   const childCategories = categories.filter((c) => c.parentId);
@@ -86,9 +95,18 @@ const AdminDashboard = () => {
         </section>
       )}
 
-      {tab === 'users' && <Table headers={['Name', 'Email', 'Role', 'Status']}>{users.map((u) => <tr key={u.id}><td>{u.name}</td><td>{u.email}</td><td><select value={u.role} onChange={(e) => updateUser(u.id, { role: e.target.value })}><option>BUYER</option><option>SALES_PERSON</option><option>ADMIN</option></select></td><td><select value={u.status} onChange={(e) => updateUser(u.id, { status: e.target.value })}><option>ACTIVE</option><option>DISABLED</option></select></td></tr>)}</Table>}
+      {tab === 'users' && <>
+        <form onSubmit={createUser} className="mt-6 grid gap-3 rounded border bg-white p-5 md:grid-cols-5">
+          <input required value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} className="rounded border px-3 py-2" placeholder="Name" />
+          <input required type="email" value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} className="rounded border px-3 py-2" placeholder="Email" />
+          <input required minLength="6" type="password" value={userForm.password} onChange={(e) => setUserForm({ ...userForm, password: e.target.value })} className="rounded border px-3 py-2" placeholder="Temporary password" />
+          <select value={userForm.role} onChange={(e) => setUserForm({ ...userForm, role: e.target.value })} className="rounded border px-3 py-2"><option>BUYER</option><option>SALES_PERSON</option><option>ADMIN</option></select>
+          <button className="rounded bg-black px-4 py-2 text-white">Create account</button>
+        </form>
+        <Table headers={['Name', 'Email', 'Role', 'Status']}>{users.map((u) => <tr key={u.id}><td>{u.name}</td><td>{u.email}</td><td><select value={u.role} onChange={(e) => updateUser(u.id, { role: e.target.value })}><option>BUYER</option><option>SALES_PERSON</option><option>ADMIN</option></select></td><td><select value={u.status} onChange={(e) => updateUser(u.id, { status: e.target.value })}><option>ACTIVE</option><option>DISABLED</option></select></td></tr>)}</Table>
+      </>}
 
-      {tab === 'orders' && <Table headers={['Order', 'Customer', 'Total', 'Status', 'Tracking']}>{orders.map((o) => <tr key={o.id}><td>#{o.id}</td><td>{o.user?.name}</td><td>{money(o.totalAmount)}</td><td><select value={o.status} onChange={(e) => updateOrder(o.id, { status: e.target.value })}>{['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map((s) => <option key={s}>{s}</option>)}</select></td><td><input defaultValue={o.carrierName || ''} onBlur={(e) => updateOrder(o.id, { carrierName: e.target.value })} className="w-28 rounded border px-2" placeholder="Carrier" /> <input defaultValue={o.trackingNumber || ''} onBlur={(e) => updateOrder(o.id, { trackingNumber: e.target.value })} className="w-32 rounded border px-2" placeholder="Tracking" /></td></tr>)}</Table>}
+      {tab === 'orders' && <Table headers={['Order', 'Customer', 'Total', 'Status', 'Tracking', 'Ship date']}>{orders.map((o) => <tr key={o.id}><td>#{o.id}</td><td>{o.user?.name}</td><td>{money(o.totalAmount)}</td><td><select value={o.status} onChange={(e) => updateOrder(o.id, { status: e.target.value })}>{['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED'].map((s) => <option key={s}>{s}</option>)}</select></td><td><input defaultValue={o.carrierName || ''} onBlur={(e) => updateOrder(o.id, { carrierName: e.target.value })} className="w-28 rounded border px-2" placeholder="Carrier" /> <input defaultValue={o.trackingNumber || ''} onBlur={(e) => updateOrder(o.id, { trackingNumber: e.target.value })} className="w-32 rounded border px-2" placeholder="Tracking" /></td><td><input type="date" defaultValue={o.shippingDate ? new Date(o.shippingDate).toISOString().slice(0, 10) : ''} onBlur={(e) => updateOrder(o.id, { shippingDate: e.target.value || null })} className="rounded border px-2" /></td></tr>)}</Table>}
 
       {tab === 'sales' && stats && <Panel title="Sales by Payment">{Object.entries(stats.byPayment || {}).map(([k, v]) => <div key={k} className="mb-3"><div className="mb-1 flex justify-between"><span>{k}</span><b>{money(v)}</b></div><div className="h-3 rounded bg-gray-200"><div className="h-3 rounded bg-black" style={{ width: `${Math.min(100, (v / Math.max(1, stats.totalSales)) * 100)}%` }} /></div></div>)}</Panel>}
       {tab === 'logs' && <Panel title="Execution logs">{logs.map((log) => <Row key={log.id} a={`${log.action} ${log.entity}`} b={new Date(log.createdAt).toLocaleString()} />)}{!logs.length && <p className="text-sm text-gray-500">No logs recorded yet.</p>}</Panel>}

@@ -51,6 +51,9 @@ model Product {
   updatedAt   DateTime @updatedAt
   orderItems  OrderItem[]
   cartItems   CartItem[]
+
+  @@index([categoryId])
+  @@index([name])
 }
 
 model Order {
@@ -99,6 +102,7 @@ model CartItem {
   saleApplied Boolean @default(false)
 
   @@unique([cartId, productId])
+  @@index([cartId])
 }
 
 model AuditLog {

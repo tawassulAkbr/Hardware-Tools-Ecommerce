@@ -8,9 +8,9 @@ Use these seeded accounts on the login page:
 
 | Role | Email | Password |
 | --- | --- | --- |
-| Admin | `admin@toolkit.com` | `admin123` |
-| Buyer | `buyer@toolkit.com` | `buyer123` |
-| Sales Person | `sales@toolkit.com` | `sales123` |
+| Admin | `admin@toolkit.com` | `Admin123!` |
+| Buyer | `buyer@toolkit.com` | `Buyer123!` |
+| Sales Person | `sales@toolkit.com` | `Sales123!` |
 
 The admin account opens the inventory and order dashboard. The buyer account can browse products and use the cart and checkout flows.
 

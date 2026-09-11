@@ -47,23 +47,23 @@ const products = [
 ];
 
 async function main() {
-  const adminPassword = await bcrypt.hash('admin123', 10);
-  const buyerPassword = await bcrypt.hash('buyer123', 10);
-  const salesPassword = await bcrypt.hash('sales123', 10);
+  const adminPassword = await bcrypt.hash('Admin123!', 10);
+  const buyerPassword = await bcrypt.hash('Buyer123!', 10);
+  const salesPassword = await bcrypt.hash('Sales123!', 10);
 
   await prisma.user.upsert({
     where: { email: 'admin@toolkit.com' },
-    update: { role: 'ADMIN', status: 'ACTIVE' },
+    update: { password: adminPassword, role: 'ADMIN', status: 'ACTIVE' },
     create: { email: 'admin@toolkit.com', name: 'ToolKit Admin', password: adminPassword, role: 'ADMIN' },
   });
   await prisma.user.upsert({
     where: { email: 'sales@toolkit.com' },
-    update: { role: 'SALES_PERSON', status: 'ACTIVE' },
+    update: { password: salesPassword, role: 'SALES_PERSON', status: 'ACTIVE' },
     create: { email: 'sales@toolkit.com', name: 'ToolKit Sales', password: salesPassword, role: 'SALES_PERSON' },
   });
   await prisma.user.upsert({
     where: { email: 'buyer@toolkit.com' },
-    update: { status: 'ACTIVE' },
+    update: { password: buyerPassword, status: 'ACTIVE' },
     create: { email: 'buyer@toolkit.com', name: 'Demo Buyer', password: buyerPassword, role: 'BUYER' },
   });
 

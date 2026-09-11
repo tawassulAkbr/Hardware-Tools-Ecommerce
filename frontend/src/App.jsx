@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import { api, clearAuth, getAuth, setAuth } from './api';
 import Navbar from './components/Navbar';
 import PageLoader from './components/PageLoader';
 import LandingPage from './pages/LandingPage';
@@ -21,6 +22,21 @@ function App() {
   useEffect(() => {
     const timer = window.setTimeout(() => setLoading(false), 1700);
     return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const stored = getAuth();
+    if (!stored?.token) return;
+    // Rehydrate the user from the server after a refresh while preserving the
+    // token if the backend is temporarily unavailable.
+    api('/auth/me').then((result) => {
+      if (result.user) {
+        setAuth({ ...stored, user: result.user });
+        window.dispatchEvent(new Event('auth-change'));
+      }
+    }).catch((error) => {
+      if (error.status === 401 || error.status === 403) clearAuth();
+    });
   }, []);
 
   if (loading) return <PageLoader />;

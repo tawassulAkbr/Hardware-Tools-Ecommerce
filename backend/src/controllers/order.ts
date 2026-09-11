@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../index';
 import { AuthRequest } from '../middlewares/auth';
 import { sendOrderEmail } from '../utils/email';
-import { clearDemoCart, getDemoCart, fallbackUserIds, isFallbackUser, salePrice } from './cart';
+import { clearDemoCart, getDemoCart, fallbackUserIds, isFallbackUser, salePrice, getShippingFee } from './cart';
 import crypto from 'node:crypto';
 import { writeAudit } from '../utils/audit';
 
@@ -51,12 +51,7 @@ export const checkout = async (req: AuthRequest, res: Response) => {
   }
 
   const subtotal = cart.items.reduce((sum, item) => sum + salePrice(item.product, item.saleApplied) * item.quantity, 0);
-  let shippingFee = SHIPPING_FEE;
-  try {
-    const setting = await prisma.systemSetting.findUnique({ where: { key: 'shippingFee' } });
-    const configuredFee = Number(setting?.value);
-    if (Number.isFinite(configuredFee) && configuredFee >= 0) shippingFee = configuredFee;
-  } catch { /* default fee keeps checkout available while the database is offline */ }
+  const shippingFee = await getShippingFee();
   const totalAmount = Number((subtotal + shippingFee).toFixed(2));
   let id = makeOrderId();
   while (await prisma.order.findUnique({ where: { id } })) id = makeOrderId();
@@ -173,6 +168,7 @@ export const listAllOrders = async (_req: Request, res: Response) => {
 export const updateOrderAdmin = async (req: AuthRequest, res: Response) => {
   const { status, carrierName, trackingNumber, shippingDate } = req.body;
   if (status && !statuses.includes(status)) return res.status(400).json({ error: 'Invalid status' });
+  if (shippingDate && Number.isNaN(new Date(shippingDate).getTime())) return res.status(400).json({ error: 'Invalid shipping date' });
   if (req.user!.id < 0) {
     const order = demoOrders.find((entry) => entry.id === String(req.params.id).toUpperCase());
     if (!order) return res.status(404).json({ error: 'Order not found' });

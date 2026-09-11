@@ -14,6 +14,7 @@ const ResetPassword = () => {
 
   const submit = async (event) => {
     event.preventDefault(); setError(''); setMessage('');
+    if (password.length < 8 || !/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) return setError('Password must be 8+ characters and include uppercase, lowercase, a number, and a special character.');
     if (password !== confirm) return setError('Passwords do not match.');
     setLoading(true);
     try { const result = await api(`/auth/reset-password/${token}`, { method: 'POST', body: JSON.stringify({ password }) }); setMessage(result.message); window.setTimeout(() => navigate('/login'), 1200); } catch (err) { setError(err.message); } finally { setLoading(false); }

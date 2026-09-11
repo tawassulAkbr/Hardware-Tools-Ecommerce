@@ -4,8 +4,8 @@ import { filteredFallbackProducts } from '../data/catalog';
 import { writeAudit } from '../utils/audit';
 
 const productData = (body: any) => ({
-  name: String(body.name || '').trim(),
-  description: String(body.description || '').trim(),
+  name: String(body.name || '').trim().slice(0, 160),
+  description: String(body.description || '').trim().slice(0, 4000),
   price: Number(body.price),
   stock: Number(body.stock ?? 0),
   imageUrl: body.imageUrl ? String(body.imageUrl).trim() : null,
@@ -14,7 +14,8 @@ const productData = (body: any) => ({
 
 const isValidProduct = (data: ReturnType<typeof productData>) =>
   Boolean(data.name && data.description && Number.isFinite(data.price) && data.price >= 0 &&
-    Number.isInteger(data.stock) && data.stock >= 0 && Number.isInteger(data.categoryId) && data.categoryId > 0);
+    Number.isInteger(data.stock) && data.stock >= 0 && Number.isInteger(data.categoryId) && data.categoryId > 0 &&
+    (!data.imageUrl || /^https?:\/\//i.test(data.imageUrl)));
 
 export const listProducts = async (req: Request, res: Response) => {
   const search = String(req.query.search || '').trim();
