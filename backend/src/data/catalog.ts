@@ -1,8 +1,8 @@
 const image = (name: string) => `/images/${encodeURIComponent(name)}`;
 const handPrices = [1899, 2499, 2999, 3499, 3999, 4499, 4999, 5499, 6299, 6999];
 const softPrices = [1499, 1999, 2299, 2799, 3199, 3699, 4199, 4799, 5399, 5999];
-const handNames = ['Adjustable Wrench', 'Claw Hammer', 'Precision Screwdriver Set', 'Combination Pliers', 'Measuring Tape', 'Utility Knife', 'Pipe Wrench', 'Hex Key Set', 'Cold Chisel Set', 'Ratchet Socket Set'];
-const softNames = ['Tool Organizer Bag', 'Protective Knee Pads', 'Rubber Mallet', 'Cable Tie Kit', 'Workshop Mat', 'Sanding Block Set', 'Grip Pad Set', 'Foam Work Cushion', 'Flexible Scraper Set', 'Workshop Cleaning Kit'];
+const handNames = ['Ring Spanner', 'Screw-driver Bits Storage Set', 'Open-end Wrench Set', 'Felling Axe', 'Multi-functional Wire Stripper', 'Aviation Snips', 'Drill Set', 'Digital Multimeter', 'Combination Pilers', 'Tool Box'];
+const softNames = ['Soldering Iron', 'HouseHold ToolKit Set', 'Electric Chain Saw', 'Electric Hand Blower', 'High Pressure Washer', 'Cordless Impact Drill Set', 'Cordless Electric Screw Driver', 'Electric Impact Drill', 'Cordless Heat Gun', 'Workshop Cleaning Kit'];
 const safetyProducts = [
   ['Cut Resistant Gloves', 'Gloves', 'Safety .png', 1699],
   ['Impact Safety Helmet', 'Protective Head Gear', 'Safety 1.png', 2899],

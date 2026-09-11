@@ -19,6 +19,7 @@ const Checkout = () => {
       const payload = Object.fromEntries(new FormData(e.currentTarget).entries());
       ['cardName', 'cardNumber', 'cardExpiry', 'cardCvv', 'walletName', 'walletNumber'].forEach((field) => delete payload[field]);
       const order = await api('/orders/checkout', { method: 'POST', body: JSON.stringify({ ...payload, email: auth?.user?.email }) });
+      window.dispatchEvent(new Event('cart-change'));
       navigate(`/order-confirmation/${order.id}`, { state: { order } });
     } catch (err) { setError(err.message); } finally { setLoading(false); }
   };

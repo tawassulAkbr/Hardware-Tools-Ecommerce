@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ArrowRight, Minus, Plus, ShieldCheck, ShoppingBag, Trash2, Truck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { api, money } from '../../api';
+import { catalogueNameFor } from '../../data/catalog';
 
 const Cart = () => {
   const [cart, setCart] = useState(null);
@@ -34,7 +35,7 @@ const Cart = () => {
             <div className="space-y-3">
               {cart.items.map((item) => <article key={item.id} className="flex flex-col gap-5 border border-gray-200 bg-white p-4 sm:flex-row sm:items-center">
                 <div className="flex h-28 w-28 shrink-0 items-center justify-center bg-gray-50 p-3"><img src={item.product.imageUrl} alt={item.product.name} className="h-full w-full object-contain" /></div>
-                <div className="min-w-0 flex-1"><p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{item.product.category?.name || 'Tool'}</p><h2 className="mt-1 text-lg font-semibold text-gray-900">{item.product.name}</h2><p className="mt-1 text-sm text-gray-500">{money(item.product.price)} each</p></div>
+                <div className="min-w-0 flex-1"><p className="text-xs font-semibold uppercase tracking-wide text-gray-400">{item.product.category?.name || 'Tool'}</p><h2 className="mt-1 text-lg font-semibold text-gray-900">{catalogueNameFor(item.product)}</h2><p className="mt-1 text-sm text-gray-500">{money(item.product.price)} each</p></div>
                 <div className="flex items-center justify-between gap-5 sm:justify-end"><div className="flex items-center border border-gray-200"><button aria-label={`Decrease ${item.product.name}`} className="p-2 text-gray-500 hover:bg-gray-50" onClick={() => update(item.id, item.quantity - 1)}><Minus className="h-4 w-4" /></button><span className="w-8 text-center text-sm font-semibold">{item.quantity}</span><button aria-label={`Increase ${item.product.name}`} className="p-2 text-gray-500 hover:bg-gray-50" onClick={() => update(item.id, item.quantity + 1)}><Plus className="h-4 w-4" /></button></div><b className="w-20 text-right">{money(item.product.price * item.quantity)}</b><button aria-label={`Remove ${item.product.name}`} className="p-2 text-gray-400 hover:text-red-600" onClick={() => remove(item.id)}><Trash2 className="h-4 w-4" /></button></div>
               </article>)}
             </div>

@@ -2,15 +2,15 @@ const image = (name) => `/images/${encodeURIComponent(name)}`;
 
 const handPrices = [1899, 2499, 2999, 3499, 3999, 4499, 4999, 5499, 6299, 6999];
 const softPrices = [1499, 1999, 2299, 2799, 3199, 3699, 4199, 4799, 5399, 5999];
-const handNames = ['Adjustable Wrench', 'Claw Hammer', 'Precision Screwdriver Set', 'Combination Pliers', 'Measuring Tape', 'Utility Knife', 'Pipe Wrench', 'Hex Key Set', 'Cold Chisel Set', 'Ratchet Socket Set'];
-const softNames = ['Tool Organizer Bag', 'Protective Knee Pads', 'Rubber Mallet', 'Cable Tie Kit', 'Workshop Mat', 'Sanding Block Set', 'Grip Pad Set', 'Foam Work Cushion', 'Flexible Scraper Set', 'Workshop Cleaning Kit'];
+const handNames = ['Ring Spanner', 'Screw-driver Bits Storage Set', 'Open-end Wrench Set', 'Felling Axe', 'Multi-functional Wire Stripper', 'Aviation Snips', 'Drill Set', 'Digital Multimeter', 'Combination Pilers', 'Tool Box'];
+const softNames = ['Soldering Iron', 'HouseHold ToolKit Set', 'Electric Chain Saw', 'Electric Hand Blower', 'High Pressure Washer', 'Cordless Impact Drill Set', 'Cordless Electric Screw Driver', 'Electric Impact Drill', 'Cordless Heat Gun', 'High Pressure Washer'];
 const safetyProducts = [
-  ['Cut Resistant Gloves', 'Gloves', 'Safety .png', 1699],
-  ['Impact Safety Helmet', 'Protective Head Gear', 'Safety 1.png', 2899],
-  ['Full Body Harness', 'Harness', 'Safety 2.png', 4299],
-  ['High Visibility Safety Rope', 'Ropes', 'Safety 3.png', 3599],
-  ['Safety Lock Cable', 'Locks & Cables', 'Safety 4.png', 4899],
-  ['Steel Toe Safety Shoes', 'Safety Shoes', 'Safety 5.png', 6499],
+  ['Full Body Safety Harness', 'Safety Harness', 'Safety .png', 1699],
+  ['Safety Jacket', 'Protective Jacket', 'Safety 1.png', 2899],
+  ['Industrial Safety Boots', 'Boots', 'Safety 2.png', 4299],
+  ['Safety Glasses', 'Goggles', 'Safety 3.png', 3599],
+  ['Safety Helmet', 'Helmet', 'Safety 4.png', 4899],
+  ['Infrared Thermometer', 'Safety Laser', 'Safety 5.png', 6499],
   ['Chemical Resistant Gloves', 'Chemical Gloves', 'Safety 6.png', 2199],
   ['Heavy Duty Welding Gloves', 'Welding Gloves', 'Safety 7.png', 2499],
   ['Tinted Safety Glasses', 'Safety Glasses', 'Safety 8.png', 1899],
@@ -64,6 +64,11 @@ export const fallbackCategories = [
 ];
 
 export const fallbackProducts = [...toolProducts, ...safetyProducts];
+
+export const catalogueNameFor = (product) => {
+  if (!product?.imageUrl) return product?.name;
+  return fallbackProducts.find((candidate) => candidate.imageUrl === product.imageUrl)?.name || product.name;
+};
 
 export const saleDiscount = (product) => {
   const index = handNames.indexOf(product.name);

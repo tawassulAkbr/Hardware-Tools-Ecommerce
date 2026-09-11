@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
 import { api, getAuth, money } from '../api';
-import { fallbackCategories, filterFallbackProducts, saleDiscount } from '../data/catalog';
+import { catalogueNameFor, fallbackCategories, filterFallbackProducts, saleDiscount } from '../data/catalog';
 import PageLoader from '../components/PageLoader';
 
 const animationFor = (product) => {
@@ -50,38 +50,47 @@ const ProductsPage = () => {
   const [subcategory, setSubcategory] = useState(searchParams.get('subcategory') || '');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(null);
+  const [inventoryReady, setInventoryReady] = useState(false);
 
   useEffect(() => {
     let active = true;
-    const loadingTimer = window.setTimeout(() => { if (active) { setLoading(true); setMessage(''); } }, 0);
+    const localProducts = filterFallbackProducts({ category: categoryQuery, subcategory, search: searchQuery });
+    setProducts(localProducts);
+    setLoading(false);
+    setInventoryReady(false);
+    setMessage('');
     const params = new URLSearchParams();
     if (categoryQuery) params.set('category', categoryQuery);
     if (subcategory) params.set('subcategory', subcategory);
     if (searchQuery) params.set('search', searchQuery);
     api(`/products?${params}`).then((data) => {
-      const localProducts = filterFallbackProducts({ category: categoryQuery, subcategory, search: searchQuery });
-      if (active) setProducts(data.length ? data : localProducts);
+      if (active) { setProducts(data.length ? data : localProducts); setInventoryReady(true); }
     }).catch((err) => {
       if (active) {
         setProducts(filterFallbackProducts({ category: categoryQuery, subcategory, search: searchQuery }));
         setMessage(`Backend unavailable. Showing the local tool catalog. (${err.message})`);
+        setInventoryReady(true);
       }
     }).finally(() => {
-      window.clearTimeout(loadingTimer);
       if (active) setLoading(false);
     });
     api('/categories').then((data) => { if (active) setCategories(data); }).catch(() => { if (active) setCategories(fallbackCategories); });
-    return () => { active = false; window.clearTimeout(loadingTimer); };
+    return () => { active = false; };
   }, [categoryQuery, subcategory, searchQuery]);
 
   const add = async (productId) => {
     if (!getAuth()?.token) return setMessage('Please login to add items to your cart.');
+    setAdding(productId);
+    setMessage('Adding to cart…');
     try {
       await api('/cart/items', { method: 'POST', body: JSON.stringify({ productId, quantity: 1, sale: saleView }) });
       setMessage('Added to cart.');
       window.dispatchEvent(new Event('cart-change'));
     } catch (err) {
       setMessage(err.message);
+    } finally {
+      setAdding(null);
     }
   };
 
@@ -115,12 +124,12 @@ const ProductsPage = () => {
               {imageFor(product) ? <AnimatedProductImage product={product} /> : 'Tool Image'}
             </div>
             <div className="p-4">
-              <h3 className="text-lg font-bold">{product.name}</h3>
+              <h3 className="text-lg font-bold">{catalogueNameFor(product)}</h3>
               <p className="mt-1 text-sm text-gray-500">{product.category?.parent?.name || product.category?.name} / {product.category?.name}</p>
               <p className="mt-2 font-semibold text-gray-900">{saleView && saleDiscount(product) > 0 ? <><span className="mr-2 text-blue-600">{money(product.price * (1 - saleDiscount(product) / 100))}</span><span className="text-sm text-gray-400 line-through">{money(product.price)}</span></> : money(product.price)}</p>
               <p className={`text-sm ${product.stock > 0 ? 'text-green-700' : 'text-red-700'}`}>{product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}</p>
-              <button disabled={product.stock < 1} onClick={() => add(product.id)} className="w-full mt-4 bg-black text-white py-2 rounded hover:bg-gray-800 disabled:bg-gray-400 transition">
-                {product.stock > 0 ? 'Add to Cart' : 'Unavailable'}
+              <button disabled={!inventoryReady || product.stock < 1 || adding === product.id} onClick={() => add(product.id)} className="w-full mt-4 bg-black text-white py-2 rounded hover:bg-gray-800 disabled:bg-gray-400 transition">
+                {product.stock < 1 ? 'Unavailable' : adding === product.id ? 'Adding…' : 'Add to Cart'}
               </button>
             </div>
           </motion.div>

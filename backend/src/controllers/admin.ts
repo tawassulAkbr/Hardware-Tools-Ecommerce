@@ -123,8 +123,13 @@ export const getMaintenance = async (_req: Request, res: Response) => {
 
 export const updateMaintenance = async (req: AuthRequest, res: Response) => {
   const allowed = ['maintenanceMode', 'announcement', 'shippingFee'];
-  const entries = Object.entries(req.body || {}).filter((entry): entry is [string, string] => allowed.includes(entry[0]) && typeof entry[1] === 'string');
+  const entries = Object.entries(req.body || {}).filter((entry): entry is [string, string] => allowed.includes(entry[0]) && typeof entry[1] === 'string')
+    .map(([key, value]) => [key, value.trim().slice(0, key === 'announcement' ? 1000 : 30)] as [string, string]);
   if (!entries.length) return res.status(400).json({ error: 'No valid maintenance settings supplied' });
+  const shipping = entries.find(([key]) => key === 'shippingFee')?.[1];
+  if (shipping !== undefined && (!Number.isFinite(Number(shipping)) || Number(shipping) < 0)) {
+    return res.status(400).json({ error: 'Shipping fee must be a non-negative number' });
+  }
   try {
     for (const [key, value] of entries) await prisma.systemSetting.upsert({ where: { key }, update: { value }, create: { key, value } });
     await writeAudit({ userId: req.user?.id, action: 'UPDATE', entity: 'SYSTEM_SETTING', metadata: Object.fromEntries(entries) });

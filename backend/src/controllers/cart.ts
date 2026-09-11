@@ -5,19 +5,24 @@ import { fallbackProducts } from '../data/catalog';
 import { writeAudit } from '../utils/audit';
 
 const SHIPPING_FEE = 299;
+let shippingFeeCache = SHIPPING_FEE;
+let shippingFeeCacheAt = 0;
 
 export const getShippingFee = async () => {
+  if (Date.now() - shippingFeeCacheAt < 60_000) return shippingFeeCache;
   try {
     const setting = await prisma.systemSetting.findUnique({ where: { key: 'shippingFee' }, select: { value: true } });
     const fee = Number(setting?.value);
-    return Number.isFinite(fee) && fee >= 0 ? fee : SHIPPING_FEE;
+    shippingFeeCache = Number.isFinite(fee) && fee >= 0 ? fee : SHIPPING_FEE;
+    shippingFeeCacheAt = Date.now();
+    return shippingFeeCache;
   } catch {
     return SHIPPING_FEE;
   }
 };
 
 export const saleDiscount = (product: { name?: unknown }) => {
-  const handNames = ['Adjustable Wrench', 'Claw Hammer', 'Precision Screwdriver Set', 'Combination Pliers', 'Measuring Tape', 'Utility Knife', 'Pipe Wrench', 'Hex Key Set', 'Cold Chisel Set', 'Ratchet Socket Set'];
+  const handNames = ['Ring Spanner', 'Screw-driver Bits Storage Set', 'Open-end Wrench Set', 'Felling Axe', 'Multi-functional Wire Stripper', 'Aviation Snips', 'Drill Set', 'Digital Multimeter', 'Combination Pilers', 'Tool Box'];
   const index = handNames.indexOf(String(product.name || ''));
   return index < 0 ? 0 : (index * 3) % 16;
 };
@@ -103,17 +108,26 @@ export const addToCart = async (req: AuthRequest, res: Response) => {
   }
   if (!product) return res.status(404).json({ error: 'Product not found' });
 
-  const cart = await prisma.cart.upsert({ where: { userId: req.user!.id }, create: { userId: req.user!.id }, update: {} });
-  const existing = await prisma.cartItem.findUnique({ where: { cartId_productId: { cartId: cart.id, productId } } });
-  if ((existing?.quantity || 0) + quantity > product.stock) {
-    return res.status(400).json({ error: 'Requested quantity exceeds available stock' });
+  try {
+    await prisma.$transaction(async (tx) => {
+      const cart = await tx.cart.upsert({ where: { userId: req.user!.id }, create: { userId: req.user!.id }, update: {} });
+      const existing = await tx.cartItem.findUnique({ where: { cartId_productId: { cartId: cart.id, productId } } });
+      if ((existing?.quantity || 0) + quantity > product.stock) {
+        throw new Error('Requested quantity exceeds available stock');
+      }
+      await tx.cartItem.upsert({
+        where: { cartId_productId: { cartId: cart.id, productId } },
+        create: { cartId: cart.id, productId, quantity, saleApplied: requestedSale && saleDiscount(product) > 0 },
+        update: { quantity: { increment: quantity }, saleApplied: requestedSale && saleDiscount(product) > 0 },
+      });
+    }, { isolationLevel: 'Serializable' });
+  } catch (error) {
+    if (error instanceof Error && error.message === 'Requested quantity exceeds available stock') {
+      return res.status(400).json({ error: error.message });
+    }
+    throw error;
   }
-  await prisma.cartItem.upsert({
-    where: { cartId_productId: { cartId: cart.id, productId } },
-    create: { cartId: cart.id, productId, quantity, saleApplied: requestedSale && saleDiscount(product) > 0 },
-    update: { quantity: { increment: quantity }, saleApplied: requestedSale && saleDiscount(product) > 0 },
-  });
-  await writeAudit({ userId: req.user!.id, action: 'ADD_ITEM', entity: 'CART', entityId: String(productId), metadata: { quantity } });
+  void writeAudit({ userId: req.user!.id, action: 'ADD_ITEM', entity: 'CART', entityId: String(productId), metadata: { quantity } });
   return getCart(req, res);
 };
 

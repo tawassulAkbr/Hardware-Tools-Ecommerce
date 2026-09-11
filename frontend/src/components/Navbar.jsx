@@ -49,7 +49,7 @@ const Navbar = () => {
         <Link to="/" className="text-2xl font-bold tracking-wider">ToolKit</Link>
         
         {/* Desktop Menu */}
-        <div className="hidden md:flex space-x-8 items-center">
+        <div className="hidden lg:flex space-x-8 items-center">
           <Link to="/products?category=Tools" className="hover:text-gray-300 transition">Tools</Link>
           <Link to="/products?category=Safety%20Equipment" className="hover:text-gray-300 transition">Safety Equipment</Link>
           <Link to="/contact" className="hover:text-gray-300 transition">Contact Us</Link>
@@ -78,20 +78,27 @@ const Navbar = () => {
         </div>
 
         {/* Mobile Menu Button */}
-        <button className="md:hidden" onClick={() => setIsOpen(!isOpen)}>
+        <button className="lg:hidden rounded p-2 hover:bg-white/10" onClick={() => setIsOpen(!isOpen)} aria-label={isOpen ? 'Close navigation menu' : 'Open navigation menu'} aria-expanded={isOpen}>
           <Menu className="w-6 h-6" />
         </button>
       </div>
 
-      {/* Mobile Sidebar overlay */}
+      {/* Narrow-screen sidebar overlay */}
       {isOpen && (
         <div className="fixed inset-0 bg-black/50 z-40" onClick={() => setIsOpen(false)} />
       )}
       
-      {/* Mobile Sidebar */}
-      <div className={`fixed inset-y-0 left-0 w-64 bg-black transform ${isOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out z-50 p-6`}>
+      {/* Narrow-screen sidebar */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] transform bg-black p-6 shadow-2xl ${isOpen ? 'translate-x-0' : '-translate-x-full'} transition-transform duration-300 ease-in-out`}>
         <div className="flex flex-col space-y-6">
-          <Link to="/" className="text-2xl font-bold" onClick={() => setIsOpen(false)}>ToolKit</Link>
+          <div className="flex items-center justify-between">
+            <Link to="/" className="text-2xl font-bold" onClick={() => setIsOpen(false)}>ToolKit</Link>
+            <button type="button" onClick={() => setIsOpen(false)} className="rounded p-2 text-gray-300 hover:bg-white/10 hover:text-white" aria-label="Close navigation menu">×</button>
+          </div>
+          <form action="/products" className="relative">
+            <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+            <input name="search" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products" className="w-full rounded bg-white px-9 py-2 text-sm text-black outline-none" />
+          </form>
           <Link to="/products?category=Tools" onClick={() => setIsOpen(false)}>Tools</Link>
           <Link to="/products?category=Safety%20Equipment" onClick={() => setIsOpen(false)}>Safety Equipment</Link>
           <Link to="/contact" onClick={() => setIsOpen(false)}>Contact Us</Link>

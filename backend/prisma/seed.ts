@@ -9,8 +9,8 @@ const groups = {
 };
 
 const asset = (name: string) => `/images/${encodeURIComponent(name)}`;
-const handNames = ['Adjustable Wrench', 'Claw Hammer', 'Precision Screwdriver Set', 'Combination Pliers', 'Measuring Tape', 'Utility Knife', 'Pipe Wrench', 'Hex Key Set', 'Cold Chisel Set', 'Ratchet Socket Set'];
-const softNames = ['Tool Organizer Bag', 'Protective Knee Pads', 'Rubber Mallet', 'Cable Tie Kit', 'Workshop Mat', 'Sanding Block Set', 'Grip Pad Set', 'Foam Work Cushion', 'Flexible Scraper Set', 'Workshop Cleaning Kit'];
+const handNames = ['Ring Spanner', 'Screw-driver Bits Storage Set', 'Open-end Wrench Set', 'Felling Axe', 'Multi-functional Wire Stripper', 'Aviation Snips', 'Drill Set', 'Digital Multimeter', 'Combination Pilers', 'Tool Box'];
+const softNames = ['Soldering Iron', 'HouseHold ToolKit Set', 'Electric Chain Saw', 'Electric Hand Blower', 'High Pressure Washer', 'Cordless Impact Drill Set', 'Cordless Electric Screw Driver', 'Electric Impact Drill', 'Cordless Heat Gun', 'Workshop Cleaning Kit'];
 const products = [
   ...Array.from({ length: 10 }, (_, index) => {
     const number = index + 1;
@@ -77,7 +77,7 @@ async function main() {
   for (const product of products) {
     const category = await prisma.category.findUniqueOrThrow({ where: { name: product.categoryName } });
     const { categoryName: _categoryName, ...data } = product;
-    const existing = await prisma.product.findFirst({ where: { name: product.name }, select: { id: true } });
+    const existing = await prisma.product.findFirst({ where: { OR: [{ name: product.name }, { imageUrl: product.imageUrl }] }, select: { id: true } });
     if (existing) {
       await prisma.product.update({ where: { id: existing.id }, data: { ...data, categoryId: category.id } });
     } else {

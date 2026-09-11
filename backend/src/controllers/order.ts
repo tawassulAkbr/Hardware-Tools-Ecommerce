@@ -5,6 +5,7 @@ import { sendOrderEmail } from '../utils/email';
 import { clearDemoCart, getDemoCart, fallbackUserIds, isFallbackUser, salePrice, getShippingFee } from './cart';
 import crypto from 'node:crypto';
 import { writeAudit } from '../utils/audit';
+import { fallbackProducts } from '../data/catalog';
 
 const SHIPPING_FEE = 299;
 const statuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED', 'CANCELLED', 'RETURN_REQUESTED'];
@@ -13,23 +14,35 @@ const makeOrderId = () => {
   const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   return [...crypto.randomBytes(9)].map((byte) => alphabet[byte % alphabet.length]).join('');
 };
+const cleanText = (value: unknown, max: number) => String(value || '').trim().slice(0, max);
 export const demoOrders: any[] = [];
 
 const fallbackCheckout = async (req: AuthRequest, res: Response) => {
   const cart = getDemoCart(req.user!.id);
   if (!cart.items.length) return res.status(400).json({ error: 'Cart is empty' });
+  for (const item of cart.items) {
+    if (item.product.stock < item.quantity) return res.status(400).json({ error: `${item.product.name} is out of stock` });
+  }
+  // Keep the offline/demo inventory lifecycle identical to the database path.
+  cart.items.forEach((item: any) => {
+    const product = fallbackProducts.find((candidate) => candidate.id === item.product.id);
+    if (product) product.stock -= item.quantity;
+  });
   let id = makeOrderId();
   while (demoOrders.some((entry) => entry.id === id)) id = makeOrderId();
   const order = { id, userId: req.user!.id, totalAmount: Number(cart.total.toFixed(2)), shippingFee: cart.shippingFee, status: 'CONFIRMED', paymentMethod: req.body.paymentMethod, customerName: req.body.customerName, phone: req.body.phone, address: req.body.address, createdAt: new Date().toISOString(), items: cart.items.map((item: any, index: number) => ({ id: index + 1, productId: item.product.id, quantity: item.quantity, price: item.product.price, product: item.product })) };
   demoOrders.unshift(order);
   clearDemoCart(req.user!.id);
   await writeAudit({ userId: req.user!.id, action: 'CREATE', entity: 'ORDER', entityId: order.id, metadata: { totalAmount: order.totalAmount, source: 'offline-fallback' } });
-  await sendOrderEmail(req.body.email || 'buyer@toolkit.com', order.id, order);
+  void sendOrderEmail(req.body.email || 'buyer@toolkit.com', order.id, order);
   return res.status(201).json(order);
 };
 
 export const checkout = async (req: AuthRequest, res: Response) => {
-  const { customerName, phone, address, paymentMethod } = req.body;
+  const customerName = cleanText(req.body.customerName, 120);
+  const phone = cleanText(req.body.phone, 40);
+  const address = cleanText(req.body.address, 500);
+  const paymentMethod = String(req.body.paymentMethod || '');
   if (!customerName || !phone || !address || !['COD', 'CARD', 'JAZZCASH', 'EASYPAISA'].includes(paymentMethod)) {
     return res.status(400).json({ error: 'Customer, address, and valid payment method are required' });
   }
@@ -94,8 +107,8 @@ export const checkout = async (req: AuthRequest, res: Response) => {
     return created;
   });
 
-  await sendOrderEmail(cart.user.email, order.id, order);
-  await writeAudit({ userId: req.user!.id, action: 'CREATE', entity: 'ORDER', entityId: order.id, metadata: { totalAmount: order.totalAmount } });
+  void sendOrderEmail(cart.user.email, order.id, order);
+  void writeAudit({ userId: req.user!.id, action: 'CREATE', entity: 'ORDER', entityId: order.id, metadata: { totalAmount: order.totalAmount } });
   return res.status(201).json(order);
 };
 
@@ -142,14 +155,26 @@ export const updateMyOrderStatus = async (req: AuthRequest, res: Response) => {
     if (!order) return res.status(404).json({ error: 'Order not found' });
     if (nextStatus === 'CANCELLED' && !['PENDING', 'CONFIRMED'].includes(order.status)) return res.status(400).json({ error: 'Order cannot be cancelled' });
     if (nextStatus === 'RETURN_REQUESTED' && order.status !== 'DELIVERED') return res.status(400).json({ error: 'Return only allowed after delivery' });
+    if (nextStatus === 'CANCELLED' && order.status !== 'CANCELLED') {
+      order.items.forEach((item: any) => {
+        const product = fallbackProducts.find((candidate) => candidate.id === item.productId);
+        if (product) product.stock += item.quantity;
+      });
+    }
     order.status = nextStatus;
     return res.json(order);
   }
-  const order = await prisma.order.findFirst({ where: { id: String(req.params.id).toUpperCase(), userId: req.user!.id } });
+  const order = await prisma.order.findFirst({ where: { id: String(req.params.id).toUpperCase(), userId: req.user!.id }, include: { items: true } });
   if (!order) return res.status(404).json({ error: 'Order not found' });
   if (nextStatus === 'CANCELLED' && !['PENDING', 'CONFIRMED'].includes(order.status)) return res.status(400).json({ error: 'Order cannot be cancelled' });
   if (nextStatus === 'RETURN_REQUESTED' && order.status !== 'DELIVERED') return res.status(400).json({ error: 'Return only allowed after delivery' });
-  res.json(await prisma.order.update({ where: { id: order.id }, data: { status: nextStatus } }));
+  const updated = await prisma.$transaction(async (tx) => {
+    if (nextStatus === 'CANCELLED' && order.status !== 'CANCELLED') {
+      for (const item of order.items) await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
+    }
+    return tx.order.update({ where: { id: order.id }, data: { status: nextStatus } });
+  });
+  res.json(updated);
 };
 
 export const listAllOrders = async (_req: Request, res: Response) => {
@@ -172,14 +197,29 @@ export const updateOrderAdmin = async (req: AuthRequest, res: Response) => {
   if (req.user!.id < 0) {
     const order = demoOrders.find((entry) => entry.id === String(req.params.id).toUpperCase());
     if (!order) return res.status(404).json({ error: 'Order not found' });
+    if (order.status === 'CANCELLED' && status && status !== 'CANCELLED') return res.status(400).json({ error: 'Cancelled orders cannot be reopened' });
+    if (status === 'CANCELLED' && order.status !== 'CANCELLED') {
+      order.items.forEach((item: any) => {
+        const product = fallbackProducts.find((candidate) => candidate.id === item.productId);
+        if (product) product.stock += item.quantity;
+      });
+    }
     Object.assign(order, { status: status || order.status, carrierName, trackingNumber, shippingDate });
     await writeAudit({ userId: req.user?.id, action: 'UPDATE', entity: 'ORDER', entityId: order.id, metadata: { status, carrierName, trackingNumber, shippingDate } });
     return res.json(order);
   }
-  const order = await prisma.order.update({
-    where: { id: String(req.params.id).toUpperCase() },
-    data: { status, carrierName, trackingNumber, shippingDate: shippingDate ? new Date(shippingDate) : undefined },
-    include: { items: { include: { product: true } }, user: true },
+  const existing = await prisma.order.findUnique({ where: { id: String(req.params.id).toUpperCase() }, include: { items: true } });
+  if (!existing) return res.status(404).json({ error: 'Order not found' });
+  if (existing.status === 'CANCELLED' && status && status !== 'CANCELLED') return res.status(400).json({ error: 'Cancelled orders cannot be reopened' });
+  const order = await prisma.$transaction(async (tx) => {
+    if (status === 'CANCELLED' && existing.status !== 'CANCELLED') {
+      for (const item of existing.items) await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
+    }
+    return tx.order.update({
+      where: { id: existing.id },
+      data: { status, carrierName, trackingNumber, shippingDate: shippingDate ? new Date(shippingDate) : undefined },
+      include: { items: { include: { product: true } }, user: true },
+    });
   });
   await writeAudit({ userId: req.user?.id, action: 'UPDATE', entity: 'ORDER', entityId: order.id, metadata: { status, carrierName, trackingNumber, shippingDate } });
   res.json(order);

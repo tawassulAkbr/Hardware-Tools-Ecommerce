@@ -67,7 +67,10 @@ export { revokeToken };
 
 export const register = async (req: Request, res: Response): Promise<any> => {
   try {
-    const { password, name, phone, address } = req.body;
+    const password = String(req.body.password || '');
+    const name = String(req.body.name || '').trim().slice(0, 120);
+    const phone = String(req.body.phone || '').trim().slice(0, 40);
+    const address = String(req.body.address || '').trim().slice(0, 500);
     const email = String(req.body.email || '').trim().toLowerCase();
 
     if (!email || !password || !name || !phone || !address) {
@@ -198,9 +201,9 @@ export const me = async (req: any, res: Response): Promise<any> => {
 };
 
 export const updateProfile = async (req: AuthRequest, res: Response): Promise<any> => {
-  const name = String(req.body.name || '').trim();
-  const phone = String(req.body.phone || '').trim();
-  const address = String(req.body.address || '').trim();
+  const name = String(req.body.name || '').trim().slice(0, 120);
+  const phone = String(req.body.phone || '').trim().slice(0, 40);
+  const address = String(req.body.address || '').trim().slice(0, 500);
   if (!name || !phone || !address) return res.status(400).json({ error: 'Name, phone, and address are required' });
   if (req.user!.id < 0) {
     const user = [...demoUsers, ...localUsers].find((candidate) => candidate.id === req.user!.id);
