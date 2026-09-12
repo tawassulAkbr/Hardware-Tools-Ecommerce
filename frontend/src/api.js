@@ -1,26 +1,33 @@
 export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 const AUTH_STORAGE_KEY = 'toolkit_auth';
-const safeText = (value, maxLength) => typeof value === 'string'
+const safeText = (value, maxLength = 4096) => typeof value === 'string'
   ? Array.from(value).filter((character) => { const code = character.charCodeAt(0); return code > 31 && code !== 127; }).join('').slice(0, maxLength)
-  : '';
+  : value;
+
+const sanitizeValue = (value, seen = new WeakSet()) => {
+  if (typeof value === 'string') return safeText(value);
+  if (value === null || typeof value === 'number' || typeof value === 'boolean') return value;
+  if (Array.isArray(value)) return value.map((item) => sanitizeValue(item, seen));
+  if (typeof value !== 'object' || seen.has(value)) return undefined;
+
+  seen.add(value);
+  const clean = Object.create(null);
+  Object.keys(value).forEach((key) => {
+    const safeKey = safeText(key, 128);
+    if (safeKey) clean[safeKey] = sanitizeValue(value[key], seen);
+  });
+  seen.delete(value);
+  return clean;
+};
 
 const sanitizeAuth = (value) => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
-  const user = value.user;
-  const token = safeText(value.token, 4096).trim();
-  if (!user || typeof user !== 'object' || Array.isArray(user) || !/^[A-Za-z0-9._~-]+$/.test(token)) return null;
-  return {
-    token,
-    user: {
-      id: typeof user.id === 'number' || (typeof user.id === 'string' && /^\d+$/.test(user.id)) ? user.id : undefined,
-      email: safeText(user.email, 160),
-      name: safeText(user.name, 120),
-      phone: safeText(user.phone, 40),
-      address: safeText(user.address, 500),
-      role: ['BUYER', 'ADMIN', 'SALES_PERSON'].includes(user.role) ? user.role : 'BUYER',
-      status: safeText(user.status, 40) || undefined,
-    },
-  };
+  const clean = sanitizeValue(value);
+  const token = typeof clean?.token === 'string' ? clean.token.trim() : '';
+  const user = clean?.user;
+  if (!clean || Array.isArray(clean) || typeof user !== 'object' || Array.isArray(user) || !/^[A-Za-z0-9._~-]+$/.test(token)) return null;
+  if (!['BUYER', 'ADMIN', 'SALES_PERSON'].includes(user.role)) return null;
+  clean.token = token;
+  return clean;
 };
 
 export const getAuth = () => {
@@ -35,7 +42,7 @@ export const getAuth = () => {
 export const setAuth = (auth) => {
   const safeAuth = sanitizeAuth(auth);
   if (safeAuth) {
-    const serializedAuth = JSON.stringify({ token: safeAuth.token, user: { ...safeAuth.user } });
+    const serializedAuth = JSON.stringify(safeAuth);
     localStorage.setItem(AUTH_STORAGE_KEY, serializedAuth);
   } else localStorage.removeItem(AUTH_STORAGE_KEY);
 };
