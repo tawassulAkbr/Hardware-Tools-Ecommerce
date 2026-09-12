@@ -24,7 +24,12 @@ const sanitizeAuth = (value) => {
 };
 
 export const getAuth = () => {
-  try { return sanitizeAuth(JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || 'null')); }
+  try {
+    const storedAuth = localStorage.getItem(AUTH_STORAGE_KEY);
+    const auth = sanitizeAuth(storedAuth ? JSON.parse(storedAuth) : null);
+    if (!auth && storedAuth !== null) localStorage.removeItem(AUTH_STORAGE_KEY);
+    return auth;
+  }
   catch { localStorage.removeItem(AUTH_STORAGE_KEY); return null; }
 };
 export const setAuth = (auth) => {
